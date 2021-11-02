@@ -17,20 +17,9 @@ void SlifeHandler::updatePointcloud (const Tensor &pointcloud) {
 void SlifeHandler::test ()
 {
 	Test::Type testWhat = tester->getType();
-	Tensor synthPcl, testValues;
-	cout << "Start Testing with " << tester->getTestGrid().size(0) << " samples" << endl;
-	for (int i = 2; i <= params.synthPclSize; i += 20) {
-		double taken;
-		cout << i;
-		PROFILE_N_EN (taken, [&](){
-			synthPcl = torch::rand({ i, 3}, kFloat);
-			optimizer->updatePointcloud(synthPcl);
-			testValues = optimizer->test (testWhat);
-		}, tester->getTestGrid().size(0), false);
-		cout << ", " << taken /tester->getTestGrid().size(0) << endl;
-	}
+	Tensor testValues;
 
-	cout << "----------" << endl;
+	testValues = optimizer->test (testWhat);
 
 	if (testValues.numel ())
 		tester->publishRangeTensor (testWhat, testValues);
@@ -39,7 +28,7 @@ void SlifeHandler::test ()
 int SlifeHandler::synchronousActions ()
 {
 	test ();
-	return 1;
+	return 0;
 }
 
 void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)

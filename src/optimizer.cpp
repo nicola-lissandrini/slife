@@ -49,14 +49,11 @@ Tensor Optimizer::test (Test::Type type)
 	const int gridSize = tester->getTestGridSize();
 	Tensor values = torch::empty ({testGrid.size(0), testTensorDim}, kFloat);
 
-	{
-		//autograd::profiler::RecordProfile a("/home/nicola/values.trace");
-		for (int i = 0; i < testGrid.size(0); i++) {
-			Tensor currentPoint = testGrid[i];
+	for (int i = 0; i < testGrid.size(0); i++) {
+		Tensor currentPoint = testGrid[i];
 
-			Tensor value = testTensorFcn(currentPoint);
-			values[i] = value.squeeze();
-		}
+		Tensor value = testTensorFcn(currentPoint);
+		values[i] = value.squeeze();
 	}
 
 
