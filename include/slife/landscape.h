@@ -9,6 +9,10 @@
 
 #include "common.h"
 
+using Pointcloud = torch::Tensor;
+using Scalar = float_t;
+using Tensor = torch::Tensor;
+
 /***
  * Approximate: int_Rn f(w) e^(-||w - x||^2/2var) dw
  ***/
@@ -43,49 +47,36 @@ public:
 	static constexpr int Dim = D_3D;
 
 	struct Params {
-		float measureRadius;
-		float smoothRadius;
+		Scalar measureRadius;
+		Scalar smoothRadius;
 		int precision;
-
-		DEF_SHARED (Params)
 	};
+
 private:
 	GaussianMontecarlo::Fcn valueLambda, gradientLambda;
 
-	Params::Ptr paramsData;
-	torch::Tensor pointcloud;
-	ReadyFlags<std::string> flags;
+	Params params;
+	Pointcloud pointcloud;
+	ReadyFlagsStr flags;
 	GaussianMontecarlo montecarlo;
 	float smoothGain;
 
-	struct {
-		torch::Tensor pointcloudDiff;
-		torch::Tensor distToPoincloud;
-		torch::Tensor collapsedDist;
-		torch::Tensor collapsedDiff;
-		torch::Tensor idxes;
-	} prealloc;
-
-
-	const Params &params () const {
-		return *std::dynamic_pointer_cast<Params> (paramsData);
-	}
-
-	torch::Tensor peak (const torch::Tensor &v) const;
-	torch::Tensor preSmoothValue (const torch::Tensor &p) const;
-	torch::Tensor preSmoothGradient (const torch::Tensor &p) const;
+	Tensor peak (const Tensor &v) const;
+	Tensor preSmoothValue (const Tensor &p) const;
+	Tensor preSmoothGradient (const Tensor &p) const;
 
 	float getNoAmplificationGain () const;
 	float getSmoothGain () const;
 
 
 public:
-	Landscape (const Params::Ptr &_params);
+	Landscape (const Params &_params);
 
-	void setPointcloud (const torch::Tensor &_pointcloud);
+	void setPointcloud (const Pointcloud &_pointcloud);
+	Pointcloud getPointcloud () const;
 
-	torch::Tensor value (const torch::Tensor &p);
-	torch::Tensor gradient (const torch::Tensor &p);
+	Tensor value (const Tensor &p);
+	Tensor gradient (const Tensor &p);
 
 	DEF_SHARED(Landscape)
 };

@@ -5,11 +5,11 @@ using namespace std;
 using namespace torch;
 using namespace torch::indexing;
 
-Landscape::Landscape (const Params::Ptr &_params):
-	paramsData(_params),
-	montecarlo(Dim, _params->precision, _params->smoothRadius)
+Landscape::Landscape (const Params &_params):
+	params(_params),
+	montecarlo(Dim, _params.precision, _params.smoothRadius)
 {
-	assert (params().measureRadius > params().smoothRadius && "Smooth radius must be smaller than measure radius");
+	assert (params.measureRadius > params.smoothRadius && "Smooth radius must be smaller than measure radius");
 	smoothGain = getSmoothGain ();
 	flags.addFlag ("pointcloud_set", true);
 
@@ -23,14 +23,18 @@ Landscape::Landscape (const Params::Ptr &_params):
 }
 
 
-void Landscape::setPointcloud(const Tensor &_pointcloud)
+void Landscape::setPointcloud(const Pointcloud &_pointcloud)
 {
 	pointcloud = _pointcloud.unsqueeze(1);
 	flags.set("pointcloud_set");
 }
 
+Pointcloud Landscape::getPointcloud() const {
+	return pointcloud;
+}
+
 Tensor Landscape::peak (const Tensor &v) const {
-	return (- v * 0.5 / pow (params().measureRadius,2));
+	return (- v * 0.5 / pow (params.measureRadius,2));
 }
 
 Tensor Landscape::preSmoothValue (const Tensor &p) const
@@ -60,7 +64,7 @@ Tensor Landscape::preSmoothGradient (const Tensor &p) const
 
 	Tensor collapsedDiff = pointcloudDiff.permute({1,0,2}).index({torch::arange(pointcloudDiff.size(1)),idxes,Ellipsis});
 
-	return collapsedDiff / pow (params().measureRadius,2) * smoothGain;
+	return collapsedDiff / pow (params.measureRadius,2) * smoothGain;
 }
 
 Tensor Landscape::gradient (const Tensor &p)
@@ -75,12 +79,12 @@ Tensor Landscape::gradient (const Tensor &p)
 }
 
 float Landscape::getNoAmplificationGain () const {
-	return 0.5*M_SQRT2*pow(params().measureRadius, 2)/
-			(pow(M_PI, 1.5)*pow(params().smoothRadius, 3)*(2*pow(params().measureRadius, 2) - 3*pow(params().smoothRadius, 2)));
+	return 0.5*M_SQRT2*pow(params.measureRadius, 2)/
+			(pow(M_PI, 1.5)*pow(params.smoothRadius, 3)*(2*pow(params.measureRadius, 2) - 3*pow(params.smoothRadius, 2)));
 }
 
 float Landscape::getSmoothGain () const {
-	return pow (2 * M_PI * pow (params().smoothRadius,2), 1.5) * getNoAmplificationGain();
+	return pow (2 * M_PI * pow (params.smoothRadius,2), 1.5) * getNoAmplificationGain();
 }
 
 GaussianMontecarlo::GaussianMontecarlo(int dim, int samplesCoount, float variance):

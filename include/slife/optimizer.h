@@ -8,38 +8,74 @@
 #include <ATen/Layout.h>
 
 #include "landscape.h"
+#include "lietorch/pose.h"
 #include "test.h"
 
+template<class LieGroup>
+class CostFunction
+{
+	using Tangent = typename LieGroup::Tangent;
+	using Scalar = typename LieGroup::Scalar;
+	using Vector = typename LieGroup::Vector;
+
+public:
+	virtual Scalar value (const LieGroup &x) = 0;
+	virtual Tangent gradient (const LieGroup &x) = 0;
+};
+
+template<class LieGroup>
+using CostFunctionPtr = std::shared_ptr<CostFunction<LieGroup>>;
+
+template<class LieGroup>
 class Optimizer
 {
+	using CostFunctionSpecPtr = CostFunctionPtr<LieGroup>;
+	using Vector = typename LieGroup::Vector;
+	using Scalar = typename LieGroup::Scalar;
+
 public:
 	struct Params {
-		float translationRate;
-		float rotationRate;
-
-		DEF_SHARED (Params)
+		Vector stepSizes;
+		Scalar threshold;
 	};
 
 private:
-	Params::Ptr paramsData;
-	Landscape landscape;
-	ReadyFlags<std::string> flags;
-
-	const Params &params () const {
-		return *paramsData;
-	}
+	Params params;
+	ReadyFlagsStr flags;
+	CostFunctionSpecPtr costFunction;
 
 public:
-	Optimizer (const Landscape::Params::Ptr &landscapeParams,
-			 const Params::Ptr &optimizerParams);
+	Optimizer (const Params &_params,
+			 const CostFunctionSpecPtr &_costFunction):
+		params(_params),
+		costFunction(_costFunction)
+	{}
 
-	void initialize (const torch::Tensor &initialValue);
-	virtual torch::Tensor optimize ();
-	void updatePointcloud (const torch::Tensor &pointcloud);
+	LieGroup optimize (const LieGroup &initialValue);
+};
 
-	torch::Tensor test(Test::Type type);
+class PointcloudMatch : public CostFunction<lietorch::Pose>
+{
+public:
+	struct Params {
 
-	DEF_SHARED(Optimizer)
+	};
+
+protected:
+	Landscape landscape;
+	ReadyFlagsStr flags;
+	Pointcloud oldPointcloud;
+
+public:
+	PointcloudMatch (const Landscape::Params &landscapeParams,
+				  const Params &optimizerParams);
+
+	Scalar value (const lietorch::Pose &x);
+	Tangent gradient (const lietorch::Pose &x);
+
+	void updatePointcloud (const Pointcloud &pointcloud);
+
+	Tensor test (Test::Type type);
 };
 
 #endif // LOCALIZE_H

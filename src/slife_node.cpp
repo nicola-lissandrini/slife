@@ -46,6 +46,16 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 	});
 	ROS_WARN ("Finding only finite points");
 	PROFILE (taken,[&]{
+		torch::Tensor validPointcloud = torch::empty_like(pointcloudTensor);
+		/*int j = 0;
+		for (int i = 0; i < pointcloudTensor.size(0); i++) {
+			cout << pointcloudTensor[i].isfinite();
+			/*if (pointcloudTensor[i].isfinite().sum(0)) {
+				validPointcloud[j] = pointcloudTensor[i];
+				j++;
+			}*/
+		}*
+		pointcloudTensor = validPointcloud.index ({torch::indexing::Slice(0,j),torch::indexing::Ellipsis});
 		torch::Tensor validIdxes = (torch::isfinite(pointcloudTensor).sum(1)).nonzero();
 		pointcloudTensor = pointcloudTensor.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
 	});

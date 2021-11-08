@@ -3,25 +3,68 @@
 using namespace std;
 using namespace torch;
 
+template<class LieGroup>
+void Optimizer<LieGroup>::initialize(const LieGroup &initialValue) {
+	flags.set("algorithm_initialized");
+	state = initialValue;
+}
+
+template<class LieGroup>
+LieGroup Optimizer<LieGroup>::optimize (const LieGroup &initialValue)
+{
+	bool terminationCondition = false;
+	int iterations = 0;
+
+	while (!terminationCondition) {
+		LieGroup nextState = state - params.step_size * costFunction->gradient ();
+
+		terminationCondition = ((nextState - state).norm () < params.threshold) ||
+						   (iterations >= params.maxIterations);
+
+		state = nextState;
+
+		iterations++;
+	}
+
+	return state;
+}
+
 
 Optimizer::Optimizer(const Landscape::Params::Ptr &landscapeParams,
 				 const Params::Ptr &optimizerParams):
 	landscape(landscapeParams),
 	paramsData(optimizerParams)
 {
-	// flags.addFlag("algorithm_initialized");
-	flags.addFlag("first_pointcloud");
+	flags.addFlag("algorithm_initialized");
+	flags.addFlag("old_pointcloud");
+	flags.addFlag("new_pointcloud");
 }
 
-void Optimizer::updatePointcloud (const Tensor &pointcloud)
-{
-	flags.set("first_pointcloud");
-	landscape.setPointcloud(pointcloud);
+void Optimizer::initialize(const Tensor &initialValue) {
+	flags.set("algorithm_initialized");
+	state = initialValue;
 }
 
 Tensor Optimizer::optimize ()
 {
+	if (!flags.isReady())
+		return Tensor ();
+
+	while (!terminationCondition ())
+		iterationStep ();
+
 	return Tensor ();
+}
+
+void Optimizer::updatePointcloud (const Tensor &pointcloud)
+{
+	if (flags["new_pointcloud"]) {
+		flags.set("old_pointcloud");
+		oldPointcloud = landscape.getPointcloud();
+	}
+
+	flags.set("new_pointcloud");
+	landscape.setPointcloud(pointcloud);
 }
 
 Tensor Optimizer::test (Test::Type type)
@@ -65,5 +108,5 @@ Tensor Optimizer::test (Test::Type type)
 	else
 		return values.reshape({gridSize, gridSize});
 }
-
+*/
 
