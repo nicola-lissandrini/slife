@@ -59,6 +59,7 @@ public:
 	LieAlg generator(int i) const;
 	LieAlg hat () const;
 	LieGroup exp() const;
+	TwistBase scale (const DataType &other) const;
 
 	LinearVelocity linear () const;
 	AngularVelocity angular () const;
@@ -157,6 +158,12 @@ template<class Translation, class Rotation>
 typename TwistBase<Translation, Rotation>::LieGroup
 TwistBase<Translation, Rotation>::exp () const {
 	return LieGroup (linear().exp(), angular().exp ());
+}
+
+template<class Translation, class Rotation>
+TwistBase<Translation, Rotation> TwistBase<Translation, Rotation>::scale(const TwistBase::DataType &other) const
+{
+
 }
 
 }

@@ -184,8 +184,11 @@ QuaternionR4Velocity::LieGroup QuaternionR4Velocity::exp () const {
 	return LieGroup (coeffs);
 }
 
-QuaternionR4Velocity QuaternionR4Velocity::scale(const QuaternionR4Velocity::DataType &other) const {
-	return QuaternionR4Velocity (otehr)
+QuaternionR4Velocity QuaternionR4Velocity::scale(const QuaternionR4Velocity::DataType &other) const
+{
+	assert (other.sizes().size() == 1 && other.sizes()[0] == 1 && "VelocityRn can only scale by a scalar");
+
+	return QuaternionR4Velocity (coeffs * other);
 }
 
 }

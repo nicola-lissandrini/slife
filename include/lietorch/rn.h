@@ -107,7 +107,7 @@ typename VelocityRn<_N>::LieGroup VelocityRn<_N>::exp () const {
 template<int _N>
 VelocityRn<_N> VelocityRn<_N>::scale(const DataType &other) const
 {
-	assert (coeffsList.sizes().size() == 1 && coeffsList.sizes()[0] == 1 && "VelocityRn can only scale by a scalar");
+	assert (other.sizes().size() == 1 && other.sizes()[0] == 1 && "VelocityRn can only scale by a scalar");
 
 	return VelocityRn<_N> (coeffs * other);
 }

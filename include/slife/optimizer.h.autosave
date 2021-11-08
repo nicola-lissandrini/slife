@@ -42,12 +42,12 @@ public:
 	MAKE_SHARED(Params)
 
 private:
-	Params params;
+	ParamsPtr params;
 	ReadyFlagsStr flags;
 	CostFunctionSpecPtr costFunction;
 
 public:
-	Optimizer (const Params &_params,
+	Optimizer (const ParamsPtr &_params,
 			 const CostFunctionSpecPtr &_costFunction):
 		params(_params),
 		costFunction(_costFunction)
