@@ -29,7 +29,13 @@ include_directories(
 )
 add_definitions(${PCL_DEFINITIONS} )
 
-add_executable(slife src/slife_node.cpp src/slife_handler.cpp src/optimizer.cpp src/landscape.cpp)
+
+add_executable(slife
+	src/slife_node.cpp
+	src/slife_handler.cpp
+	src/optimizer.cpp
+	src/landscape.cpp
+	src/quaternion.cpp)
 target_link_libraries (slife ${catkin_LIBRARIES} ${TORCH_LIBRARIES} ${PCL_LIBRARIES} sparcsnode systems_lib)
 add_dependencies(slife ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

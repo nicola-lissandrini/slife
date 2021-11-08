@@ -11,7 +11,7 @@ SlifeHandler::SlifeHandler()
 }
 
 void SlifeHandler::updatePointcloud (const Tensor &pointcloud) {
-	optimizer->updatePointcloud(pointcloud);
+	costFunction->updatePointcloud(pointcloud);
 }
 
 void SlifeHandler::test ()
@@ -19,7 +19,7 @@ void SlifeHandler::test ()
 	Test::Type testWhat = tester->getType();
 	Tensor testValues;
 
-	testValues = optimizer->test (testWhat);
+	testValues = costFunction->test (testWhat);
 
 	if (testValues.numel ())
 		tester->publishRangeTensor (testWhat, testValues);
@@ -34,19 +34,34 @@ int SlifeHandler::synchronousActions ()
 void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 {
 	Landscape::Params::Ptr landscapeParams = getLandscapeParams(xmlParams["landscape"]);
-	Optimizer::Params::Ptr optimizerParams = getOptimizerParams(xmlParams["optimizer"]);
+	PoseOptimizer::Params::Ptr optimizerParams = getOptimizerParams(xmlParams["optimizer"]);
+	PointcloudMatch::Params::Ptr costFunctionParams = getCostFunctionParams(xmlParams["optimizer"]["cost"]);
 
-	optimizer = make_shared<Optimizer> (landscapeParams,
-								 optimizerParams);
+	costFunction = make_shared<PointcloudMatch> (landscapeParams,
+										costFunctionParams);
+	optimizer = make_shared<PoseOptimizer> (optimizerParams,
+									dynamic_pointer_cast<CostFunction<lietorch::Pose>> (costFunction));
 
 	params.synthPclSize = paramInt (xmlParams, "synth_pcl_size");
 
 	flags.set ("initialized");
 }
 
-Optimizer::Params::Ptr SlifeHandler::getOptimizerParams(XmlRpc::XmlRpcValue &xmlParams)
+PointcloudMatch::Params::Ptr SlifeHandler::getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams)
 {
-	Optimizer::Params::Ptr optimizerParams = make_shared<Optimizer::Params> ();
+	PointcloudMatch::Params::Ptr costFunctionParams = make_shared<PointcloudMatch::Params> ();
+
+	costFunctionParams->batchSize = paramInt (xmlParams, "batch_size");
+
+	return costFunctionParams;
+}
+
+PoseOptimizer::Params::Ptr SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
+{
+	PoseOptimizer::Params::Ptr optimizerParams = make_shared<PoseOptimizer::Params> ();
+
+	optimizerParams->stepSizes = paramTensor<float> (xmlParams, "step_sizes");
+	optimizerParams->threshold = paramTensor<float> (xmlParams, "threshold");
 
 	return optimizerParams;
 }

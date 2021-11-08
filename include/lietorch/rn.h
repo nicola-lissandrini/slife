@@ -17,6 +17,7 @@ template<int _N>
 struct traits<Rn<_N>>
 {
 	static constexpr int Dim = _N;
+	static constexpr int ActDim = _N;
 
 	using Tangent = VelocityRn<_N>;
 	using Vector = torch::Tensor;
@@ -68,6 +69,8 @@ public:
 	Tangent log () const;
 	Rn compose (const Rn &other) const;
 	Vector act (const Vector &v) const;
+	Tangent differentiate (const DataType &outerGradient, const Vector &v) const;
+
 };
 
 // Implementation
@@ -93,6 +96,12 @@ typename Rn<_N>::Vector Rn<_N>::act (const Vector &v) const {
 }
 
 template<int _N>
+typename Rn<_N>::Tangent Rn<_N>::differentiate (const DataType &outerGradient, const Vector &v) const {
+	// Jacobian is the identity
+	return outerGradient;
+}
+
+template<int _N>
 typename VelocityRn<_N>::LieAlg VelocityRn<_N>::generator (int i) const {
 	torch::Tensor gen = torch::zeros({Dim}, torch::kFloat);
 	gen[i] = 1;
@@ -103,6 +112,7 @@ template<int _N>
 typename VelocityRn<_N>::LieGroup VelocityRn<_N>::exp () const {
 	return LieGroup (coeffs);
 }
+
 
 template<int _N>
 VelocityRn<_N> VelocityRn<_N>::scale(const DataType &other) const

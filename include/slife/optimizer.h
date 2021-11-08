@@ -14,70 +14,96 @@
 template<class LieGroup>
 class CostFunction
 {
+public:
+	struct Params {
+		virtual ~Params () = default;
+		DEF_SHARED(Params)
+	};
+
 	using Tangent = typename LieGroup::Tangent;
 	using Coeffs = typename LieGroup::DataType;
 	using Vector = typename LieGroup::Vector;
 
-public:
+
+	CostFunction (const typename Params::Ptr &params);
+
 	virtual Vector value (const LieGroup &x) = 0;
 	virtual Tangent gradient (const LieGroup &x) = 0;
+
+	DEF_SHARED(CostFunction)
+
+protected:
+	typename Params::Ptr paramsData;
 };
 
 template<class LieGroup>
-using CostFunctionPtr = std::shared_ptr<CostFunction<LieGroup>>;
+CostFunction<LieGroup>::CostFunction  (const typename Params::Ptr &params):
+	paramsData(params)
+{}
 
 template<class LieGroup>
 class Optimizer
 {
-	using CostFunctionSpecPtr = CostFunctionPtr<LieGroup>;
 	using Vector = typename LieGroup::Vector;
 	using Coeffs = typename LieGroup::DataType;
 
 public:
 	struct Params {
-		Coeffs stepSizes;
-		float threshold;
-	};
+		torch::Tensor stepSizes;
+		torch::Tensor threshold;
 
-	MAKE_SHARED(Params)
+		DEF_SHARED(Params)
+	};
 
 private:
 	Params params;
 	ReadyFlagsStr flags;
-	CostFunctionSpecPtr costFunction;
+	typename CostFunction<LieGroup>::Ptr costFunction;
 
 public:
-	Optimizer (const Params &_params,
-			 const CostFunctionSpecPtr &_costFunction):
-		params(_params),
+	Optimizer (const typename Params::Ptr &_params,
+			 const typename CostFunction<LieGroup>::Ptr &_costFunction):
+		params(*_params),
 		costFunction(_costFunction)
 	{}
 
 	LieGroup optimize (const LieGroup &initialValue);
+
+	DEF_SHARED(Optimizer)
 };
 
 class PointcloudMatch : public CostFunction<lietorch::Pose>
 {
 public:
-	struct Params {
+	struct Params : public CostFunction<lietorch::Pose>::Params {
+		int batchSize;
 
+		DEF_SHARED(Params)
 	};
 
 protected:
 	Landscape landscape;
 	ReadyFlagsStr flags;
-	Pointcloud oldPointcloud;
+	Pointcloud oldPcl;
+
+	Params &params() const {
+		return *std::dynamic_pointer_cast<Params> (paramsData);
+	}
 
 public:
-	PointcloudMatch (const Landscape::Params &landscapeParams,
-				  const Params &optimizerParams);
+	PointcloudMatch (const Landscape::Params::Ptr &landscapeParams,
+				  const Params::Ptr &pointcloudMatchParams);
 
-	Scalar value (const lietorch::Pose &x);
+	Vector value (const lietorch::Pose &x);
 	Tangent gradient (const lietorch::Pose &x);
 
 	void updatePointcloud (const Pointcloud &pointcloud);
 
 	Tensor test (Test::Type type);
+
+	DEF_SHARED (PointcloudMatch)
 };
+
+using PoseOptimizer = Optimizer<lietorch::Pose>;
 
 #endif // LOCALIZE_H

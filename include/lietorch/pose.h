@@ -8,10 +8,6 @@
 
 namespace lietorch {
 
-#define LIETORCH_POSITION_DIM 3
-
-//using Position = Rn<LIETORCH_POSITION_DIM>;
-//using Velocity = VelocityRn<LIETORCH_POSITION_DIM>;
 
 template<class Translation, class Rotation>
 class TwistBase;
@@ -49,12 +45,12 @@ class TwistBase : public Tangent<TwistBase<Translation,Rotation>>
 
 	using LinearVelocity = typename Translation::Tangent;
 	using AngularVelocity = typename Rotation::Tangent;
-	using Base::coeffs;
 
 public:
+	using Base::coeffs;
 	LIETORCH_INHERIT_TANGENT_TRAITS
 
-	TwistBase (const LinearVelocity &linear, const AngularVelocity &angular);
+	TwistBase (const LinearVelocity &linear = LinearVelocity(), const AngularVelocity &angular = AngularVelocity());
 
 	LieAlg generator(int i) const;
 	LieAlg hat () const;
@@ -80,6 +76,7 @@ public:
 	Tangent log () const;
 	PoseBase compose (const PoseBase &other) const;
 	Vector act (const Vector &v) const;
+	Tangent differentiate (const Vector &outerGradient, const Vector &v) const;
 
 	Translation translation () const;
 	Rotation rotation () const;
@@ -90,11 +87,18 @@ using Position2 = Rn<2>;
 using Position3 = Rn<3>;
 using Rotation = UnitQuaternionR4;
 
+using Velocity2 = VelocityRn<2>;
+using Velocity3 = VelocityRn<3>;
+
 using Pose3R4 = PoseBase<Position3, UnitQuaternionR4>;
 // using Pose3H = PoseBase<Position3, QuaternionH>; TODO
+using Twist3R4 = TwistBase<Velocity3, QuaternionR4Velocity>;
 
 using Position = Position3;
+using Velocity = Velocity3;
 using Pose = Pose3R4;
+using Twist = Twist3R4;
+
 
 
 template<class Translation, class Rotation>
@@ -134,7 +138,14 @@ PoseBase<Translation, Rotation> PoseBase<Translation, Rotation>::compose (const 
 template<class Translation, class Rotation>
 typename PoseBase<Translation, Rotation>::Vector
 PoseBase<Translation, Rotation>:: PoseBase::act (const Vector &v) const {
-	return rotation() * v + translation();
+	return rotation() * v + translation().coeffs;
+}
+
+template<class Translation, class Rotation>
+typename PoseBase<Translation, Rotation>::Tangent
+PoseBase<Translation, Rotation>::differentiate (const Vector &outerGradient, const Vector &v) const {
+	return Tangent (translation().differentiate (outerGradient, v),
+				 rotation().differentiate (outerGradient, v));
 }
 
 template<class Translation, class Rotation>

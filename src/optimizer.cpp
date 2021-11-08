@@ -2,21 +2,18 @@
 
 using namespace std;
 using namespace torch;
+using namespace lietorch;
 
-template<class LieGroup>
-void Optimizer<LieGroup>::initialize(const LieGroup &initialValue) {
-	flags.set("algorithm_initialized");
-	state = initialValue;
-}
 
 template<class LieGroup>
 LieGroup Optimizer<LieGroup>::optimize (const LieGroup &initialValue)
 {
+	LieGroup state = initialValue;
 	bool terminationCondition = false;
 	int iterations = 0;
 
 	while (!terminationCondition) {
-		LieGroup nextState = state - params.step_size * costFunction->gradient ();
+		LieGroup nextState = state - costFunction->gradient (state) * params.step_size;
 
 		terminationCondition = ((nextState - state).norm () < params.threshold) ||
 						   (iterations >= params.maxIterations);
@@ -29,45 +26,52 @@ LieGroup Optimizer<LieGroup>::optimize (const LieGroup &initialValue)
 	return state;
 }
 
-
-Optimizer::Optimizer(const Landscape::Params::Ptr &landscapeParams,
-				 const Params::Ptr &optimizerParams):
-	landscape(landscapeParams),
-	paramsData(optimizerParams)
+PointcloudMatch::PointcloudMatch (const Landscape::Params::Ptr &landscapeParams,
+						    const Params::Ptr &pointcloudMatchParams):
+	CostFunction(pointcloudMatchParams),
+	landscape(*landscapeParams)
 {
-	flags.addFlag("algorithm_initialized");
 	flags.addFlag("old_pointcloud");
 	flags.addFlag("new_pointcloud");
 }
 
-void Optimizer::initialize(const Tensor &initialValue) {
-	flags.set("algorithm_initialized");
-	state = initialValue;
-}
-
-Tensor Optimizer::optimize ()
-{
-	if (!flags.isReady())
-		return Tensor ();
-
-	while (!terminationCondition ())
-		iterationStep ();
-
-	return Tensor ();
-}
-
-void Optimizer::updatePointcloud (const Tensor &pointcloud)
+void PointcloudMatch::updatePointcloud(const Pointcloud &pointcloud)
 {
 	if (flags["new_pointcloud"]) {
 		flags.set("old_pointcloud");
-		oldPointcloud = landscape.getPointcloud();
+		oldPcl = landscape.getPointcloud();
 	}
-
 	flags.set("new_pointcloud");
-	landscape.setPointcloud(pointcloud);
+	landscape.setPointcloud (pointcloud);
 }
 
-Tensor Optimizer::test (Test::Type type)
+PointcloudMatch::Tangent PointcloudMatch::gradient(const Pose &x)
+{
+	Pointcloud predicted = x * oldPcl;
+	Tangent totalGradient;
+
+	for (int i = 0; i < predicted.size(0); i++){
+		const Tensor &curr = predicted[i];
+		totalGradient += x.differentiate(landscape.gradient (curr), curr);
+	}
+
+	return totalGradient;
+}
+
+PointcloudMatch::Vector PointcloudMatch::value (const Pose &x)
+{
+	Pointcloud predicted = x * oldPcl;
+	Tensor totalValue = torch::zeros ({1}, kFloat);
+
+	for (int i = 0; i < predicted.size(0); i++){
+		const Tensor &curr = predicted[i];
+		totalValue += landscape.value (curr);
+	}
+
+	return totalValue;
+}
+
+Tensor PointcloudMatch::test (Test::Type type)
 {
 	if (!flags.isReady())
 		return Tensor ();
@@ -108,5 +112,29 @@ Tensor Optimizer::test (Test::Type type)
 	else
 		return values.reshape({gridSize, gridSize});
 }
-*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

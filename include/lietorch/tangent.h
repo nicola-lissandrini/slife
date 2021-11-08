@@ -33,12 +33,13 @@ public:
 	using DataType = typename internal::traits<LieGroup>::DataType;
 
 protected:
-	DataType coeffs;
 
 	Derived &derived () { return *static_cast<Derived*>(this); }
 	const Derived &derived () const { return *static_cast<const Derived*>(this); }
 
 public:
+	DataType coeffs;
+
 	Tangent ();
 	Tangent (const DataType &coeffs);
 	Tangent (const torch::detail::TensorDataContainer &coeffsList);
@@ -52,6 +53,10 @@ public:
 	Derived &operator = (const Tangent &t);
 	Derived &operator = (const torch::detail::TensorDataContainer &coeffsList);
 	Derived operator * (const DataType &other) const;
+	Derived operator + (const Derived &other) const;
+	Derived operator - (const Derived &other) const;
+	Derived &operator += (const Derived &other);
+	Derived &operator -= (const Derived &other);
 
 	Derived &setZero();
 	static Derived Zero ();
@@ -105,6 +110,28 @@ Derived Tangent<Derived>::operator * (const DataType &other) const {
 template<class Derived>
 Derived Tangent<Derived>::operator - () const {
 	return Tangent (-coeffs).derived();
+}
+
+template<class Derived>
+Derived Tangent<Derived>::operator + (const Derived &other) const {
+	return Tangent(coeffs + other.coeffs).derived();
+}
+
+template<class Derived>
+Derived Tangent<Derived>::operator - (const Derived &other) const {
+	return Tangent(coeffs - other.coeffs).derived();
+}
+
+template<class Derived>
+Derived &Tangent<Derived>::operator += (const Derived &other)  {
+	coeffs += other.coeffs;
+	return derived();
+}
+
+template<class Derived>
+Derived &Tangent<Derived>::operator -= (const Derived &other)  {
+	coeffs -= other.coeffs;
+	return derived();
 }
 
 template<class Derived>

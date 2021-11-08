@@ -27,6 +27,7 @@ struct traits;
 	friend Base;
 
 #define LIETORCH_INHERIT_GROUP_TRAITS         \
+	using Jacobian = typename Base::Jacobian; \
 	using DataType = typename Base::DataType;\
 	using Vector = typename Base::Vector;    \
 	using Tangent = typename Base::Tangent;  \
@@ -38,14 +39,21 @@ class LieGroup
 {
 public:
 	using DataType = torch::Tensor;
+	using Jacobian = torch::Tensor;
 	using Tangent  = typename internal::traits<Derived>::Tangent;
 	using Vector   = typename internal::traits<Derived>::Vector;
 
 	static constexpr int Dim = internal::traits<Derived>::Dim;
+	static constexpr int ActDim = internal::traits<Derived>::Dim;
 
 protected:
 	inline Derived &derived () { return *static_cast<Derived*>(this); }
 	inline const Derived &derived () const { return *static_cast<const Derived*>(this); }
+
+	Jacobian jacobian;
+
+private:
+	void initJacobian ();
 
 public:
 	DataType coeffs;
@@ -60,6 +68,7 @@ public:
 	Tangent log () const;
 	Derived compose (const Derived &other) const;
 	Vector act (const Vector &v) const;
+	Tangent differentiate (const Vector &outerGradient, const Vector &v) const;
 
 	Derived plus (const Tangent &t) const;
 	Tangent minus (const Derived &other) const;
@@ -91,24 +100,31 @@ std::string LieGroup<Derived>::toString () {
 	return ss.str ();
 }
 
+template<typename Derived>
+void LieGroup<Derived>::initJacobian() {
+	jacobian = torch::empty ({ActDim, Dim}, torch::kFloat);
+}
 
 // Copy
 template<typename Derived>
 LieGroup<Derived>::LieGroup() {
+	initJacobian();
 	setIdentity();
 }
 
 template<class Derived>
 LieGroup<Derived>::LieGroup(const LieGroup::DataType &_coeffs):
 	coeffs(_coeffs)
-{}
+{
+	assert (coeffs.sizes().size() == 1 && coeffs.size(0) == Dim && "Incompatible initialization tensor size");
+
+	initJacobian();
+}
 
 template<class Derived>
-LieGroup<Derived>::LieGroup(const torch::detail::TensorDataContainer &coeffsList)
+LieGroup<Derived>::LieGroup(const torch::detail::TensorDataContainer &coeffsList):
+	LieGroup (torch::tensor(coeffsList, torch::kFloat))
 {
-	assert (coeffsList.sizes().size() == 1 && coeffsList.sizes()[0] == Dim && "Incompatible initializer list size");
-
-	coeffs = torch::tensor(coeffsList, torch::kFloat);
 }
 
 template<typename Derived>
@@ -147,6 +163,12 @@ template<class Derived>
 typename LieGroup<Derived>::Vector
 LieGroup<Derived>::act(const Vector &v) const {
 	return derived().act (v);
+}
+
+template<class Derived>
+typename LieGroup<Derived>::Tangent
+LieGroup<Derived>::differentiate (const Vector &outerGradient, const Vector &v) const {
+	return derived().differentiate (outerGradient, v);
 }
 
 /*

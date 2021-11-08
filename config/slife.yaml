@@ -9,7 +9,10 @@ slife:
     smooth_radius: 0.01
     precision: 100
   optimizer:
-    ciao: come
+    step_sizes: [0.3, 0.1]
+    threshold: 0.01
+    cost:
+      batch_size: 10
   debug:
     test_grid:
       min: -1.0

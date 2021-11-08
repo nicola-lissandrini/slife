@@ -14,5 +14,5 @@ include_directories(
 	${TORCH_INCLUDE_DIRS}
 )
 
-add_executable(test_lietorch test_torch.cpp)
+add_executable(test_lietorch test_template.cpp)
 target_link_libraries (test_lietorch ${TORCH_LIBRARIES})

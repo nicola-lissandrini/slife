@@ -50,7 +50,10 @@ public:
 		Scalar measureRadius;
 		Scalar smoothRadius;
 		int precision;
+
+		DEF_SHARED(Params)
 	};
+
 
 private:
 	GaussianMontecarlo::Fcn valueLambda, gradientLambda;

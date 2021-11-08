@@ -20,10 +20,12 @@ class SlifeHandler
 
 	Params params;
 	ReadyFlags<std::string> flags;
-	Optimizer::Ptr optimizer;
+	PointcloudMatch::Ptr costFunction;
+	PoseOptimizer::Ptr optimizer;
 
-	Optimizer::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
+	PoseOptimizer::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
 	Landscape::Params::Ptr getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams);
+	PointcloudMatch::Params::Ptr getCostFunctionParams(XmlRpc::XmlRpcValue &xmlParams);
 
 	void test ();
 
