@@ -5,6 +5,7 @@
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <pcl/conversions.h>
 
 #include "../../sparcslib/include/profiling.h"
 
@@ -22,9 +23,8 @@ int main ()
 {
 	float taken;
 	Tensor pcld, summed;
-	PCLPointCloud2::Ptr pcl1(new PCLPointCloud2), pcl2(new PCLPointCloud2);
 	sensor_msgs::PointCloud2 pclMsg;
-
+	PCLPointCloud2::Ptr pcl1(new PCLPointCloud2);
 
 	torch::load (pcld, "/home/nicola/pcl.torch");
 
