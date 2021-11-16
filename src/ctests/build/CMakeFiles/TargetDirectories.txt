@@ -1,0 +1,3 @@
+/home/nicola/ros/tum_ws/src/slife/src/ctests/build/CMakeFiles/rebuild_cache.dir
+/home/nicola/ros/tum_ws/src/slife/src/ctests/build/CMakeFiles/edit_cache.dir
+/home/nicola/ros/tum_ws/src/slife/src/ctests/build/CMakeFiles/test_lietorch.dir

@@ -27,7 +27,10 @@ void SlifeHandler::test ()
 
 int SlifeHandler::synchronousActions ()
 {
-	test ();
+	//test ();
+
+
+
 	return 0;
 }
 

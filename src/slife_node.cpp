@@ -4,9 +4,12 @@
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
 
+#include <eigen3/Eigen/Core>
+
 using namespace ros;
 using namespace std;
 using namespace torch;
+using namespace Eigen;
 
 Test::Ptr tester;
 
@@ -37,6 +40,7 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 	const int pclSize = pointcloud.height * pointcloud.width;
 
 	torch::Tensor pointcloudTensor;
+
 	double taken;
 	ROS_WARN ("Full Tensor loading");
 	PROFILE (taken, [&]{
@@ -45,6 +49,7 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 					    .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
 	});
 	ROS_WARN ("Finding only finite points");
+
 	PROFILE (taken,[&]{
 		/*torch::Tensor validPointcloud = torch::empty_like(pointcloudTensor);
 		int j = 0;
@@ -58,6 +63,60 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 		pointcloudTensor = validPointcloud.index ({torch::indexing::Slice(0,j),torch::indexing::Ellipsis});*/
 		torch::Tensor validIdxes = (torch::isfinite(pointcloudTensor).sum(1)).nonzero();
 		pointcloudTensor = pointcloudTensor.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
+	});
+
+
+
+	PROFILE (taken,[&]{
+		torch::Tensor validIdxes = (torch::isfinite(pointcloudTensor.sum(1))).nonzero();
+		pointcloudTensor = pointcloudTensor.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
+	});
+
+	torch::Tensor decimatedPcl;
+
+	ROS_WARN ("Decimate pcl");
+	PROFILE (taken, [&] {
+		 decimatedPcl = pointcloudTensor.slice (0, 0, c10::nullopt, 10);
+	});
+
+	ROS_WARN ("Nan in decimated pcl");
+	PROFILE (taken,[&]{
+		torch::Tensor validIdxes = (torch::isfinite(decimatedPcl).sum(1)).nonzero();
+		decimatedPcl = decimatedPcl.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
+	});
+
+
+
+
+	/*ROS_WARN ("alg 2");
+	PROFILE (taken, [&]{
+		Tensor validPcl = torch::empty_like(pointcloudTensor);
+		int j = 0;
+		for (int i = 0; i < validPcl.size(0); i++) {
+			if ((pointcloudTensor[i].sum() > 0).item().toBool()) {
+				validPcl[j] = pointcloudTensor[i];
+				j++;
+			}
+		}
+		validPcl = validPcl.slice (0, j);
+	});*/
+
+	//Matrix<float, 407040, 3> pclEigen;
+	//Matrix<float, 407040, 3> validPclEigen;
+	using PclEigen = Matrix<float, 407040, 3>;
+
+	cout << "loading eigen" << endl;
+	PclEigen pclEigen;
+	PROFILE (taken, [&]{
+		  pclEigen = Map<PclEigen> ((float*)pointcloud.data.data());
+	});
+
+	ROS_WARN ("x == x");
+	PROFILE (taken, [&]{
+		auto x = (pclEigen - pclEigen).array();
+		cout << "before" << endl;
+		cout << abi::__cxa_demangle(typeid(x).name(),0,0,0) << endl;
+		cout << x << endl;
 	});
 
 	slifeHandler.updatePointcloud(pointcloudTensor);

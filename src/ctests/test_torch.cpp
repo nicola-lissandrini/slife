@@ -6,7 +6,7 @@ using namespace std;
 using namespace torch;
 using namespace torch::indexing;
 
-#define N 40000
+#define N 400000
 
 int main ()
 {
