@@ -14,31 +14,54 @@ using Scalar = float_t;
 using Tensor = torch::Tensor;
 
 /***
- * Approximate: int_Rn f(w) e^(-||w - x||^2/2var) dw
+ * Approximate: int_Rn f(w) e^(-||w - x||^2/2radius) dw
  ***/
-class GaussianMontecarlo
+class Smoother
 {
 public:
 	struct Params {
 		int dim;
 		int samplesCount;
-		float variance;
+		float radius;
 	};
 
-private:
+protected:
 	Params params;
-
-	struct {
-		torch::Tensor xVar;
-		torch::Tensor xEval;
-	} prealloc;
 
 public:
 	using Fcn = std::function<torch::Tensor(torch::Tensor)>;
 
-	GaussianMontecarlo (int dim, int samplesCoount, float variance);
+	Smoother (int dim, int samplesCount, float radius);
 
-	torch::Tensor evaluate (const Fcn &f, const torch::Tensor &center);
+	virtual torch::Tensor evaluate (const Fcn &f, const torch::Tensor &x) = 0;
+
+	DEF_SHARED(Smoother)
+};
+
+
+class MontecarloSmoother : public Smoother
+{
+public:
+	MontecarloSmoother (int dim, int samplesCount, float radius):
+		Smoother (dim, samplesCount, radius)
+	{}
+
+	torch::Tensor evaluate (const Fcn &f, const torch::Tensor &x);
+
+	DEF_SHARED(MontecarloSmoother)
+};
+
+
+// Compute a riemann summ approximation of the integral
+class RiemannSmoother : public Smoother
+{
+public:
+	RiemannSmoother (int dim, int samplesCount, float radius):
+		Smoother (dim, samplesCount, radius)
+	{}
+
+	// !!!TODO
+	torch::Tensor evaluate (const Fcn &f, const at::Tensor &x);
 };
 
 class Landscape
@@ -56,12 +79,12 @@ public:
 
 
 private:
-	GaussianMontecarlo::Fcn valueLambda, gradientLambda;
+	Smoother::Fcn valueLambda, gradientLambda;
 
 	Params params;
 	Pointcloud pointcloud;
 	ReadyFlagsStr flags;
-	GaussianMontecarlo montecarlo;
+	Smoother::Ptr smoother;
 	float smoothGain;
 
 	Tensor peak (const Tensor &v) const;

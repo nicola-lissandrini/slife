@@ -15,6 +15,11 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/conversions.h>
 #include <pcl_ros/transforms.h>
+#include <pcl/range_image/range_image.h>
+#include <pcl/filters/approximate_voxel_grid.h>
+#include <pcl/features/range_image_border_extractor.h>
+#include <pcl/keypoints/narf_keypoint.h>
+#include <pcl/io/pcd_io.h>
 
 using namespace ros;
 using namespace std;
@@ -49,17 +54,36 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 {
 	QUA;
 	pcl::PCLPointCloud2Ptr pcl2(new pcl::PCLPointCloud2), reduced(new pcl::PCLPointCloud2);
+	pcl::PointCloud<pcl::PointXYZ> pcl3;
 	float taken;
 	cout << "type conversion " << endl;
 	PROFILE(taken,[&]{
 		pcl_conversions::toPCL(pointcloud, *pcl2);
 	});
 
+	pcl::fromPCLPointCloud2 (*pcl2, pcl3);
+	pcl::NarfKeypoint  *narfKeypointDetector;
+
 	PROFILE(taken,[&]{
-		pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
-		sor.setInputCloud(pcl2);
-		sor.setLeafSize(0.1,0.1,0.1);
-		sor.filter (*reduced);
+		 float noise_level = 0.0;
+		 float min_range = 0.0f;
+		 int border_size = 1;
+		 pcl::RangeImage::Ptr rangeImagePtr(new pcl::RangeImage);
+		 pcl::RangeImage &rangeImage = *rangeImagePtr;
+
+		 rangeImage.createFromPointCloud (pcl3, pcl::deg2rad (0.5f), pcl::deg2rad (360.0f),
+								    pcl::deg2rad (180.0f),
+								    Eigen::Affine3f::Identity ());
+		 rangeImage.setUnseenToMaxRange ();
+		 pcl::RangeImageBorderExtractor rangeImageBorderExtractor;
+		 narfKeypointDetector = new pcl::NarfKeypoint (&rangeImageBorderExtractor);
+
+		 narfKeypointDetector->setRangeImage (&rangeImage);
+		 narfKeypointDetector->getParameters().support_size = 0.2f;
+		 pcl::PointCloud<int> keypointIndices;
+		 narfKeypointDetector->compute (keypointIndices);
+
+		 std::cout << "Found "<<keypointIndices.size ()<<" key points.\n" << endl;
 	});
 
 

@@ -13,7 +13,7 @@ LieGroup Optimizer<LieGroup>::optimize (const LieGroup &initialValue)
 	int iterations = 0;
 
 	while (!terminationCondition) {
-		LieGroup nextState = state - costFunction->gradient (state) * params.step_size;
+		LieGroup nextState = state - costFunction->gradient (state) * params.stepSizes;
 
 		terminationCondition = ((nextState - state).norm () < params.threshold) ||
 						   (iterations >= params.maxIterations);
@@ -50,7 +50,7 @@ PointcloudMatch::Tangent PointcloudMatch::gradient(const Pose &x)
 	Pointcloud predicted = x * oldPcl;
 	Tangent totalGradient;
 
-	for (int i = 0; i < predicted.size(0); i++){
+	for (int i = 0; i < predicted.size(0); i++) {
 		const Tensor &curr = predicted[i];
 		totalGradient += x.differentiate(landscape.gradient (curr), curr);
 	}
