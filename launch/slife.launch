@@ -4,6 +4,7 @@
 	<!-- Slife core -->
 	<rosparam command="load" file="$(find slife)/config/slife.yaml" />
 	<node type="slife" name="slife" pkg="slife" output="screen" />
+	<node type="synth_pcl_node.py" name="synth_pcl_node" pkg="slife" output="screen" />
 
 
 	<!-- RealSense -->

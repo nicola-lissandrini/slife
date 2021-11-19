@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0.2)
 project(ctests)
 set(CMAKE_BUILD_TYPE Debug)
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++20)
 
 set(Torch_DIR "/opt/libtorch/share/cmake/Torch")
 set(USE_CUDA 0)
@@ -21,5 +21,5 @@ include_directories(
 	/opt/ros/noetic/include
 )
 
-add_executable(test_lietorch narf.cpp)
+add_executable(test_lietorch test_quaternion.cpp ../quaternion.cpp)
 target_link_libraries (test_lietorch ${TORCH_LIBRARIES} ${PCL_LIBRARIES})

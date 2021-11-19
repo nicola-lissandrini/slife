@@ -27,8 +27,8 @@ void SlifeHandler::test ()
 
 int SlifeHandler::synchronousActions ()
 {
-	//test ();
-
+	if (costFunction->isReady())
+		test ();
 
 
 	return 0;

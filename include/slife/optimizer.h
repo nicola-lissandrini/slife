@@ -29,10 +29,14 @@ public:
 
 	virtual Vector value (const LieGroup &x) = 0;
 	virtual Tangent gradient (const LieGroup &x) = 0;
+	bool isReady () {
+		return flags.isReady();
+	}
 
 	DEF_SHARED(CostFunction)
 
 protected:
+	ReadyFlagsStr flags;
 	typename Params::Ptr paramsData;
 };
 
@@ -57,7 +61,6 @@ public:
 
 private:
 	Params params;
-	ReadyFlagsStr flags;
 	typename CostFunction<LieGroup>::Ptr costFunction;
 
 public:

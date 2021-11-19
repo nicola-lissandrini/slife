@@ -4,7 +4,7 @@ using namespace lietorch;
 using namespace torch;
 
 Tensor UnitQuaternionR4::imag () const {
-	return coeffs.slice(0,3);
+	return coeffs.slice(0,0,3);
 }
 
 UnitQuaternionR4::UnitQuaternionR4():

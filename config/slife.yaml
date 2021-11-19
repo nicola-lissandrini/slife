@@ -1,13 +1,13 @@
 slife:
   rate: 1
-  synth_pcl_size: 1000
+  synth_pcl_size: 10
   topics:
     pointcloud: /camera/depth/pointcloud
     debug_grid: /slife/debug_grid
   landscape:
     measure_radius: 0.7
     smooth_radius: 0.01
-    precision: 100
+    precision: 10
   optimizer:
     step_sizes: [0.3, 0.1]
     threshold: 0.01
@@ -19,4 +19,4 @@ slife:
       max: 1.0
       step: 0.06
     z_test_value: 0.
-    test_type: gradient # options: {value, gradient}
+    test_type: cost_value # options: {none, landscape_value, landscape_gradient, cost_value, cost_gradient}

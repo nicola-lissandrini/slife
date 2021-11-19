@@ -12,7 +12,8 @@ Landscape::Landscape (const Params &_params):
 	smoothGain = getSmoothGain ();
 	flags.addFlag ("pointcloud_set", true);
 
-	smoother = make_shared<MontecarloSmoother> (Dim, _params.precision, _params.smoothRadius);
+	const int _dim = Dim; // Fix ODR violation (issue prior to c++17)
+	smoother = make_shared<MontecarloSmoother> (_dim, _params.precision, _params.smoothRadius);
 	valueLambda = [this] (const torch::Tensor &p) -> torch::Tensor  {
 		return preSmoothValue (p);
 	};
@@ -52,7 +53,7 @@ Tensor Landscape::value(const Tensor &p)
 	if (pointcloud.size (0) == 0)
 		return Tensor();
 	else
-		return smoother.evaluate (valueLambda, p);
+		return smoother->evaluate (valueLambda, p);
 }
 
 Tensor Landscape::preSmoothGradient (const Tensor &p) const
@@ -75,7 +76,7 @@ Tensor Landscape::gradient (const Tensor &p)
 	if (pointcloud.size (0) == 0)
 		return Tensor();
 	else
-		return smoother.evaluate(gradientLambda, p);
+		return smoother->evaluate(gradientLambda, p);
 }
 
 float Landscape::getNoAmplificationGain () const {
@@ -95,9 +96,9 @@ Smoother::Smoother (int dim, int samplesCount, float variance):
 Tensor MontecarloSmoother::evaluate(const Fcn &f, const Tensor &x)
 {
 	Tensor xVar = torch::normal (0.0, params.radius, {params.samplesCount, params.dim});
-	Tensor xEval = prealloc.xVar + x.expand ({params.samplesCount, params.dim});
+	Tensor xEval = xVar + x.expand ({params.samplesCount, params.dim});
 
-	return f(prealloc.xEval).mean (0);
+	return f(xEval).mean (0);
 }
 
 

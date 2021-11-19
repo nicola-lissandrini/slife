@@ -119,7 +119,6 @@ template<class Translation, class Rotation>
 PoseBase<Translation, Rotation>::PoseBase (const Translation &translation, const Rotation &rotation):
 	Base(torch::cat({translation.coeffs, rotation.coeffs}))
 {
-	std::cout << Translation::Dim << std::endl;
 }
 
 template<class Translation, class Rotation>

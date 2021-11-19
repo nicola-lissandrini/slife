@@ -41,7 +41,7 @@ void SlifeNode::initParams () {
 }
 
 void SlifeNode::initROS () {
-	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 1, &SlifeNode::pointcloudCallback);
+	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2, &SlifeNode::pointcloudCallback);
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 }
 
@@ -50,45 +50,38 @@ int SlifeNode::actions ()  {
 }
 
 
+// WARNING: takes 5-10ms
 void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 {
-	QUA;
-	pcl::PCLPointCloud2Ptr pcl2(new pcl::PCLPointCloud2), reduced(new pcl::PCLPointCloud2);
-	pcl::PointCloud<pcl::PointXYZ> pcl3;
-	float taken;
-	cout << "type conversion " << endl;
-	PROFILE(taken,[&]{
-		pcl_conversions::toPCL(pointcloud, *pcl2);
+	const int pclSize = pointcloud.height * pointcloud.width;
+
+	torch::Tensor pointcloudTensor;
+	double taken;
+	ROS_WARN ("Full Tensor loading");
+	PROFILE (taken, [&]{
+		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // TEMP REMOVE {pclSize, 4},
+									  torch::TensorOptions().dtype(torch::kFloat32));
+					    // REMOVING TEMPORARLY FOR SYNTHETIC PCL TESTS
+					    // .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
+	});
+	cout << pointcloudTensor << endl;
+	ROS_WARN ("Finding only finite points");
+	PROFILE (taken,[&]{
+		/*torch::Tensor validPointcloud = torch::empty_like(pointcloudTensor);
+		int j = 0;
+		for (int i = 0; i < pointcloudTensor.size(0); i++) {
+			cout << pointcloudTensor[i].isfinite();
+			/*if (pointcloudTensor[i].isfinite().sum(0)) {
+				validPointcloud[j] = pointcloudTensor[i];
+				j++;
+			}
+		}
+		pointcloudTensor = validPointcloud.index ({torch::indexing::Slice(0,j),torch::indexing::Ellipsis});*/
+		torch::Tensor validIdxes = (torch::isfinite(pointcloudTensor).sum(1)).nonzero();
+		pointcloudTensor = pointcloudTensor.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
 	});
 
-	pcl::fromPCLPointCloud2 (*pcl2, pcl3);
-	pcl::NarfKeypoint  *narfKeypointDetector;
-
-	PROFILE(taken,[&]{
-		 float noise_level = 0.0;
-		 float min_range = 0.0f;
-		 int border_size = 1;
-		 pcl::RangeImage::Ptr rangeImagePtr(new pcl::RangeImage);
-		 pcl::RangeImage &rangeImage = *rangeImagePtr;
-
-		 rangeImage.createFromPointCloud (pcl3, pcl::deg2rad (0.5f), pcl::deg2rad (360.0f),
-								    pcl::deg2rad (180.0f),
-								    Eigen::Affine3f::Identity ());
-		 rangeImage.setUnseenToMaxRange ();
-		 pcl::RangeImageBorderExtractor rangeImageBorderExtractor;
-		 narfKeypointDetector = new pcl::NarfKeypoint (&rangeImageBorderExtractor);
-
-		 narfKeypointDetector->setRangeImage (&rangeImage);
-		 narfKeypointDetector->getParameters().support_size = 0.2f;
-		 pcl::PointCloud<int> keypointIndices;
-		 narfKeypointDetector->compute (keypointIndices);
-
-		 std::cout << "Found "<<keypointIndices.size ()<<" key points.\n" << endl;
-	});
-
-
-	cout << reduced->width << "x" << reduced->height << endl;
-	QUA;
+	slifeHandler.updatePointcloud(pointcloudTensor);
 }
 
 Tensor Test::getTestGrid() const {
@@ -140,7 +133,7 @@ void Test::initParams (XmlRpc::XmlRpcValue &xmlParams)
 {
 	params.testGridRanges = paramRange (xmlParams,"test_grid");
 	params.zTestValue = paramDouble (xmlParams, "z_test_value");
-	params.testType = paramEnum<Type> (xmlParams, "test_type", {"none","value","gradient"});
+	params.testType = paramEnum<Type> (xmlParams, "test_type", {"none","landscape_value", "landscape_gradient", "cost_value", "cost_gradient"});
 }
 
 Test::Test (XmlRpc::XmlRpcValue &xmlParams,

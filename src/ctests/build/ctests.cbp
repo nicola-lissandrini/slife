@@ -128,7 +128,10 @@
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/narf.cpp">
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/test_quaternion.cpp">
+			<Option target="test_lietorch"/>
+		</Unit>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/quaternion.cpp">
 			<Option target="test_lietorch"/>
 		</Unit>
 		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/CMakeLists.txt">

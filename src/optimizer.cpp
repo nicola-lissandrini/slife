@@ -47,20 +47,21 @@ void PointcloudMatch::updatePointcloud(const Pointcloud &pointcloud)
 
 PointcloudMatch::Tangent PointcloudMatch::gradient(const Pose &x)
 {
-	Pointcloud predicted = x * oldPcl;
+	Pointcloud predicted = x * oldPcl.squeeze();
 	Tangent totalGradient;
 
 	for (int i = 0; i < predicted.size(0); i++) {
 		const Tensor &curr = predicted[i];
+
 		totalGradient += x.differentiate(landscape.gradient (curr), curr);
 	}
-
+	cout << totalGradient.coeffs << endl;
 	return totalGradient;
 }
 
 PointcloudMatch::Vector PointcloudMatch::value (const Pose &x)
 {
-	Pointcloud predicted = x * oldPcl;
+	Pointcloud predicted = x * oldPcl.squeeze();
 	Tensor totalValue = torch::zeros ({1}, kFloat);
 
 	for (int i = 0; i < predicted.size(0); i++){
@@ -84,9 +85,17 @@ Tensor PointcloudMatch::test (Test::Type type)
 		testTensorDim = D_1D;
 		testTensorFcn = [this] (const Tensor &p) -> Tensor { return this->landscape.value(p); };
 		break;
+	case Test::TEST_COST_VALUES:
+		testTensorDim = D_1D;
+		testTensorFcn = [this] (const Tensor &p) -> Tensor { return this->value(Pose(p,Rotation())); };
+		break;
 	case Test::TEST_LANDSCAPE_GRADIENT:
 		testTensorDim = D_3D;
 		testTensorFcn = [this] (const Tensor &p) -> Tensor { return this->landscape.gradient(p); };
+		break;
+	case Test::TEST_COST_GRADIENT:
+		testTensorDim = D_3D;
+		testTensorFcn = [this] (const Tensor &p) -> Tensor { return this->gradient(Pose(p,Rotation())).coeffs; };
 		break;
 	default:
 		return Tensor ();
@@ -96,15 +105,20 @@ Tensor PointcloudMatch::test (Test::Type type)
 	const int gridSize = tester->getTestGridSize();
 	Tensor values = torch::empty ({testGrid.size(0), testTensorDim}, kFloat);
 
+	float taken;
+	PROFILE_N(taken,[&]{
+
 	for (int i = 0; i < testGrid.size(0); i++) {
 		Tensor currentPoint = testGrid[i];
-
 		Tensor value = testTensorFcn(currentPoint);
 		values[i] = value.squeeze();
 	}
 
+	}, testGrid.size(0));
 
-	if (type == Test::TEST_LANDSCAPE_GRADIENT) {
+
+	if (type == Test::TEST_LANDSCAPE_GRADIENT ||
+			type == Test::TEST_COST_GRADIENT) {
 		Tensor ret = values.reshape({gridSize * gridSize, testTensorDim});
 
 		return ret;

@@ -680,6 +680,9 @@ QT_QMAKE_EXECUTABLE:STRING=/usr/lib/qt5/bin/qmake
 //Path to a library.
 TORCH_LIBRARY:FILEPATH=/opt/libtorch/lib/libtorch.so
 
+//The directory containing a CMake configuration file for Torch.
+Torch_DIR:PATH=Torch_DIR-NOTFOUND
+
 //Path to a file.
 USB_10_INCLUDE_DIR:PATH=/usr/include
 

@@ -9,9 +9,9 @@ using namespace torch;
 
 int main ()
 {
-	Quaternion a(0.0868241, 0.0868241, 0.0075961, 0.9924039);
+	UnitQuaternionR4 a(0.0868241, 0.0868241, 0.0075961, 0.9924039);
 	Tensor v = torch::tensor({{1., 1., 1.}, {1.,2.,3.}, {3.,2.,1.}, {1., 1., 1.}}, kFloat);
-
+	cpou
 	cout << a * v << endl;
 	return 0;
 }

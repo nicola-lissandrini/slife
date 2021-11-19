@@ -14,6 +14,8 @@ grid_topic = "/slife/debug_grid"
 TEST_NONE = 0
 TEST_LANDSCAPE_VALUES = 1
 TEST_LANDSCAPE_GRADIENT = 2
+TEST_COST_VALUES = 3
+TEST_COST_GRADIENT = 4
 
 def handle_close (fig):
     quit ()
@@ -44,6 +46,9 @@ class DisplayNode:
 
         if (self.type == TEST_LANDSCAPE_VALUES):
             im = plt.pcolormesh (y, x, self.values, edgecolors="none", antialiased=True, vmin=0, vmax=1)
+            self.fig.colorbar (im)
+        elif (self.type == TEST_COST_VALUES):
+            im = plt.pcolormesh (y, x, self.values, edgecolors="none", antialiased=True)
             self.fig.colorbar (im)
         else:
             print (self.values[:,0])
