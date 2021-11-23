@@ -9,12 +9,12 @@ slife:
     estimate: /slife/estimate
   landscape:
     measure_radius: 0.7
-    smooth_radius: 0.01
-    precision: 10
+    smooth_radius: 0.1
+    precision: 100
   optimizer:
-    step_sizes: [0.0001, 0.0001]
+    step_sizes: [0.0000, 0.0000]
     threshold: 0.01
-    max_iterations: 20
+    max_iterations: 0
     initialization_type: identity # options: {identity}
     record_history: true  # time consuming, use only for debug
     cost:
@@ -25,4 +25,4 @@ slife:
       max: 1.0
       step: 0.06
     z_test_value: 0.
-    test_type: landscape_gradient # options: {none, landscape_value, landscape_gradient, cost_value, cost_gradient}
+    test_type: cost_value # options: {none, landscape_value, landscape_gradient, cost_value, cost_gradient}

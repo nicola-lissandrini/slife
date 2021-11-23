@@ -49,8 +49,8 @@ void SlifeHandler::test ()
 
 int SlifeHandler::synchronousActions ()
 {
-	/*if (costFunction->isReady())
-		test ();*/
+	if (costFunction->isReady())
+		test ();
 
 	return 0;
 }

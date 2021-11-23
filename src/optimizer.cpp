@@ -93,7 +93,7 @@ PointcloudMatch::Vector PointcloudMatch::value (const Pose &x)
 	Pointcloud predicted = x * oldPcl.squeeze();
 	Tensor totalValue = torch::zeros ({1}, kFloat);
 
-	for (int i = 0; i < predicted.size(0); i++){
+	for (int i = 0; i < predicted.size(0); i++) {
 		const Tensor &curr = predicted[i];
 		totalValue += landscape.value (curr);
 	}
@@ -124,8 +124,9 @@ Tensor PointcloudMatch::test (Test::Type type)
 		break;
 	case Test::TEST_COST_GRADIENT:
 		testTensorDim = D_3D;
-		testTensorFcn = [this] (const Tensor &p) -> Tensor { return this->gradient(Pose(p,Rotation())).coeffs; };
+		testTensorFcn = [this] (const Tensor &p) -> Tensor { return this->gradient(Pose(p,Rotation())).coeffs.slice(0, 0, 3); };
 		break;
+	case Test::TEST_NONE:
 	default:
 		return Tensor ();
 	}
@@ -140,6 +141,7 @@ Tensor PointcloudMatch::test (Test::Type type)
 	for (int i = 0; i < testGrid.size(0); i++) {
 		Tensor currentPoint = testGrid[i];
 		Tensor value = testTensorFcn(currentPoint);
+
 		values[i] = value.squeeze();
 	}
 
