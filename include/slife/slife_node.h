@@ -17,6 +17,7 @@ class SlifeNode : public SparcsNode
 	int actions ();
 
 	void pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud);
+	void publishTensor (SlifeHandler::OutputTensorType outputType, const torch::Tensor &tensor);
 
 public:
 	SlifeNode ();

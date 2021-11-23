@@ -6,6 +6,7 @@
 #include <ATen/TensorOperators.h>
 #include <ATen/Layout.h>
 
+#include <cxxabi.h>
 
 namespace lietorch {
 
@@ -48,6 +49,7 @@ public:
 	LieAlg hat () const;
 	LieGroup exp () const;
 	Derived scale (const DataType &other) const;
+	DataType norm () const;
 
 	Derived operator - () const;
 	Derived &operator = (const Tangent &t);
@@ -61,6 +63,13 @@ public:
 	Derived &setZero();
 	static Derived Zero ();
 };
+
+template<class Derived>
+std::ostream &operator << (std::ostream &os, const Tangent<Derived> &l) {
+	os << abi::__cxa_demangle(typeid(Derived).name(), NULL,NULL,NULL) << "\n" << l.coeffs;
+
+	return os;
+}
 
 template<class Derived>
 Tangent<Derived>::Tangent ():
@@ -100,6 +109,12 @@ Derived &Tangent<Derived>::operator = (const torch::detail::TensorDataContainer 
 template<class Derived>
 Derived Tangent<Derived>::scale(const DataType &other) const {
 	return derived().scale (other);
+}
+
+template<class Derived>
+typename Tangent<Derived>::DataType
+Tangent<Derived>::norm () const {
+	return coeffs.norm ();
 }
 
 template<class Derived>

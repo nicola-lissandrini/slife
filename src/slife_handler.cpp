@@ -4,14 +4,36 @@
 
 using namespace std;
 using namespace torch;
+using namespace lietorch;
 
-SlifeHandler::SlifeHandler()
+SlifeHandler::SlifeHandler(TensorPublisher _tensorPublishCallback):
+	tensorPublishCallback(_tensorPublishCallback)
 {
 	flags.addFlag ("initialized", true);
 }
 
 void SlifeHandler::updatePointcloud (const Tensor &pointcloud) {
 	costFunction->updatePointcloud(pointcloud);
+
+	if (costFunction->isReady()) {
+		lietorch::Pose estimate = optimizer->optimize();
+
+		tensorPublishCallback (OUTPUT_ESTIMATE, estimate.coeffs);
+		tensorPublishCallback (OUTPUT_DEBUG_1, historyToTensor (optimizer->getHistory ()));
+	}
+}
+
+Tensor SlifeHandler::historyToTensor (const std::vector<Pose> &historyVector)
+{
+	Tensor historyTensor = torch::empty({historyVector.size(), Pose::Dim}, kFloat);
+	int i = 0;
+
+	for (Pose curr : historyVector) {
+		historyTensor[i] = curr.coeffs;
+		i++;
+	}
+
+	return historyTensor;
 }
 
 void SlifeHandler::test ()
@@ -27,9 +49,8 @@ void SlifeHandler::test ()
 
 int SlifeHandler::synchronousActions ()
 {
-	if (costFunction->isReady())
-		test ();
-
+	/*if (costFunction->isReady())
+		test ();*/
 
 	return 0;
 }
@@ -65,6 +86,9 @@ PoseOptimizer::Params::Ptr SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue
 
 	optimizerParams->stepSizes = paramTensor<float> (xmlParams, "step_sizes");
 	optimizerParams->threshold = paramTensor<float> (xmlParams, "threshold");
+	optimizerParams->maxIterations = paramTensor<float> (xmlParams, "max_iterations");
+	optimizerParams->initializationType = paramEnum<PoseOptimizer::InitializationType> (xmlParams, "initialization_type",{"identity"});
+	optimizerParams->recordHistory = paramBool (xmlParams, "record_history");
 
 	return optimizerParams;
 }

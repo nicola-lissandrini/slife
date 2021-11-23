@@ -44,7 +44,7 @@ public:
 	using Vector   = typename internal::traits<Derived>::Vector;
 
 	static constexpr int Dim = internal::traits<Derived>::Dim;
-	static constexpr int ActDim = internal::traits<Derived>::Dim;
+	static constexpr int ActDim = internal::traits<Derived>::ActDim;
 
 protected:
 	inline Derived &derived () { return *static_cast<Derived*>(this); }
@@ -70,15 +70,19 @@ public:
 	Vector act (const Vector &v) const;
 	Tangent differentiate (const Vector &outerGradient, const Vector &v) const;
 
+	// this * t.exp ()
 	Derived plus (const Tangent &t) const;
+	// (other.inverse * this).log ()
 	Tangent minus (const Derived &other) const;
 
 	bool isApprox (const Derived &other) const;
 
 	// same as plus ()
 	Derived operator + (const Tangent &t) const;
-	// same as minus ()
+	// equivalent to plus + (-t)
 	Derived operator - (const Tangent &t) const;
+	// same as minus ()
+	Tangent operator - (const Derived &t) const;
 	// Compose
 	Derived operator * (const Derived &other) const;
 	// Act
@@ -88,16 +92,13 @@ public:
 
 	Derived &setIdentity ();
 	static Derived Identity ();
-
-
-	std::string toString ();
 };
 
 template<class Derived>
-std::string LieGroup<Derived>::toString () {
-	std::stringstream ss;
-	ss << abi::__cxa_demangle(typeid(Derived).name(), NULL,NULL,NULL) << "\n" << coeffs;
-	return ss.str ();
+std::ostream &operator << (std::ostream &os, const LieGroup<Derived> &l) {
+	os << abi::__cxa_demangle(typeid(Derived).name(), NULL,NULL,NULL) << "\n" << l.coeffs;
+
+	return os;
 }
 
 template<typename Derived>
@@ -193,6 +194,14 @@ Derived &LieGroup<Derived>::setIdentity()
 }
 
 template<typename Derived>
+Derived LieGroup<Derived>::Identity () {
+	const static Tangent zero = Tangent::Zero ();
+	return zero.exp ();
+}
+
+
+
+template<typename Derived>
 Derived LieGroup<Derived>::plus (const Tangent &other) const {
 	return compose (other.exp ());
 }
@@ -200,7 +209,7 @@ Derived LieGroup<Derived>::plus (const Tangent &other) const {
 template<typename Derived>
 typename LieGroup<Derived>::Tangent
 LieGroup<Derived>::minus (const Derived &other) const {
-	return other.inverse().compose (derived().log ());
+	return other.inverse().compose (derived()).log ();
 }
 
 template<typename Derived>
@@ -209,8 +218,14 @@ Derived LieGroup<Derived>::operator + (const LieGroup<Derived>::Tangent &t) cons
 }
 
 template<typename Derived>
-Derived LieGroup<Derived>::operator - (const LieGroup<Derived>::Tangent &t) const {
+typename LieGroup<Derived>::Tangent
+LieGroup<Derived>::operator - (const Derived &t) const {
 	return minus(t);
+}
+
+template<typename Derived>
+Derived LieGroup<Derived>::operator - (const Tangent &t) const {
+	return plus(-t);
 }
 
 template<typename Derived>
@@ -235,7 +250,6 @@ typename LieGroup<Derived>::Vector LieGroup<Derived>::operator *(const DerivedOt
 {
 	return act(other.coeffs);
 }
-
 
 }
 

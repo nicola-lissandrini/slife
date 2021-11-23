@@ -8,7 +8,7 @@ from roslib import message
 
 
 synth_pcl_topic = "/camera/depth/pointcloud"
-points_count = 100
+points_count = 10
 
 class Pose:
     def __init__ (self, t, q):

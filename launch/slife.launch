@@ -3,8 +3,9 @@
 <launch>
 	<!-- Slife core -->
 	<rosparam command="load" file="$(find slife)/config/slife.yaml" />
-	<node type="slife" name="slife" pkg="slife" output="screen" />
+	<node type="slife" name="slife" pkg="slife" output="screen" required="true"  respawn="false" />
 	<node type="synth_pcl_node.py" name="synth_pcl_node" pkg="slife" output="screen" />
+	<node type="display_history.py" name="display_history" pkg="slife" output="screen" />
 
 
 	<!-- RealSense -->

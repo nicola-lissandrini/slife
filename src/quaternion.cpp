@@ -2,6 +2,7 @@
 
 using namespace lietorch;
 using namespace torch;
+using namespace std;
 
 Tensor UnitQuaternionR4::imag () const {
 	return coeffs.slice(0,0,3);
@@ -49,28 +50,30 @@ UnitQuaternionR4 UnitQuaternionR4::compose(const UnitQuaternionR4 &o) const {
 UnitQuaternionR4::Vector UnitQuaternionR4::act (const LieGroup::Vector &v) const
 {
 	torch::Tensor imagPart = imag ();
-
-	return v * (w().pow(2) - imagPart.pow(2).sum()) +
+	if (v.sizes().size() == 1)
+		v.unsqueeze_(0);
+	return (v * (w().pow(2) - imagPart.pow(2).sum()) +
 		  2 * v.matmul(imagPart).unsqueeze(1) * imagPart.unsqueeze(0) +
-		  2 * w() * imagPart.expand_as(v).cross (v, 1);
+		  2 * w() * imagPart.expand_as(v).cross (v, 1)).squeeze();
 }
 
 UnitQuaternionR4::Tangent UnitQuaternionR4::differentiate (const Vector &outerGradient, const Vector &v) const
 {
 	// Differentiate rotation action R*v
 	Jacobian jacobianCopy = jacobian;
-	jacobianCopy[0, 0] =  2*v[0]*x() + 2*v[1]*y() + 2*v[2]*z();
-	jacobianCopy[1, 0] =  2*v[0]*y() - 2*v[1]*x() - 2*v[2]*w();
-	jacobianCopy[2, 0] =  2*v[0]*z() + 2*v[1]*w() - 2*v[2]*x();
-	jacobianCopy[0, 1] = -2*v[0]*y() + 2*v[1]*x() + 2*v[2]*w();
-	jacobianCopy[1, 1] =  2*v[0]*x() + 2*v[1]*y() + 2*v[2]*z();
-	jacobianCopy[2, 1] = -2*v[0]*w() + 2*v[1]*z() - 2*v[2]*y();
-	jacobianCopy[0, 2] = -2*v[0]*z() - 2*v[1]*w() + 2*v[2]*x();
-	jacobianCopy[1, 2] =  2*v[0]*w() - 2*v[1]*z() + 2*v[2]*y();
-	jacobianCopy[2, 2] =  2*v[0]*x() + 2*v[1]*y() + 2*v[2]*z();
-	jacobianCopy[0, 3] =  2*v[0]*w() - 2*v[1]*z() + 2*v[2]*y();
-	jacobianCopy[1, 3] =  2*v[0]*z() + 2*v[1]*w() - 2*v[2]*x();
-	jacobianCopy[2, 3] = -2*v[0]*y() + 2*v[1]*x() + 2*v[2]*w();
+
+	jacobianCopy[0][0] = ( 2*v[0]*x() + 2*v[1]*y() + 2*v[2]*z()).item();
+	jacobianCopy[1][0] = ( 2*v[0]*y() - 2*v[1]*x() - 2*v[2]*w()).item();
+	jacobianCopy[2][0] = ( 2*v[0]*z() + 2*v[1]*w() - 2*v[2]*x()).item();
+	jacobianCopy[0][1] = (-2*v[0]*y() + 2*v[1]*x() + 2*v[2]*w()).item();
+	jacobianCopy[1][1] = ( 2*v[0]*x() + 2*v[1]*y() + 2*v[2]*z()).item();
+	jacobianCopy[2][1] = (-2*v[0]*w() + 2*v[1]*z() - 2*v[2]*y()).item();
+	jacobianCopy[0][2] = (-2*v[0]*z() - 2*v[1]*w() + 2*v[2]*x()).item();
+	jacobianCopy[1][2] = ( 2*v[0]*w() - 2*v[1]*z() + 2*v[2]*y()).item();
+	jacobianCopy[2][2] = ( 2*v[0]*x() + 2*v[1]*y() + 2*v[2]*z()).item();
+	jacobianCopy[0][3] = ( 2*v[0]*w() - 2*v[1]*z() + 2*v[2]*y()).item();
+	jacobianCopy[1][3] = ( 2*v[0]*z() + 2*v[1]*w() - 2*v[2]*x()).item();
+	jacobianCopy[2][3] = (-2*v[0]*y() + 2*v[1]*x() + 2*v[2]*w()).item();
 
 	return Tangent (outerGradient.unsqueeze (0).mm (jacobianCopy).squeeze ());
 }
@@ -117,7 +120,7 @@ QuaternionR4Velocity::LieGroup QuaternionR4Velocity::exp () const {
 
 QuaternionR4Velocity QuaternionR4Velocity::scale(const QuaternionR4Velocity::DataType &other) const
 {
-	assert (other.sizes().size() == 1 && other.sizes()[0] == 1 && "VelocityRn can only scale by a scalar");
+	assert ((other.sizes().size() == 1 && other.sizes()[0] == 1) || other.sizes().size() == 0 && "QuaternionR4Velocity can only scale by a scalar");
 
 	return QuaternionR4Velocity (coeffs * other);
 }

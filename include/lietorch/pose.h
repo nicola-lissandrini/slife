@@ -20,6 +20,8 @@ template<class Translation, class Rotation>
 struct traits<PoseBase<Translation, Rotation>>
 {
 	static constexpr int Dim = Translation::Dim + Rotation::Dim;
+	static constexpr int ActDim = LIETORCH_POSITION_DIM;
+
 
 	using Tangent = TwistBase<Translation, Rotation>;
 	using Vector = torch::Tensor;
@@ -65,9 +67,10 @@ template<class Translation, class Rotation>
 class PoseBase : public LieGroup<PoseBase<Translation,Rotation>>
 {
 	using Base = LieGroup<PoseBase<Translation,Rotation>>;
-	using Base::coeffs;
 
 public:
+	using Base::coeffs;
+
 	LIETORCH_INHERIT_GROUP_TRAITS
 
 	PoseBase (const Translation &_position = Translation (), const Rotation &_orientation = Rotation ());
@@ -130,6 +133,11 @@ PoseBase<Translation, Rotation> PoseBase<Translation, Rotation>::inverse () cons
 }
 
 template<class Translation, class Rotation>
+typename PoseBase<Translation,Rotation>::Tangent PoseBase<Translation,Rotation>::log () const {
+	return Tangent (translation().log(), rotation().log());
+}
+
+template<class Translation, class Rotation>
 PoseBase<Translation, Rotation> PoseBase<Translation, Rotation>::compose (const PoseBase &other) const {
 	return PoseBase (translation() * (rotation() * other.translation()), rotation() * other.rotation());
 }
@@ -155,13 +163,15 @@ TwistBase<Translation, Rotation>::TwistBase(const LinearVelocity &linear, const 
 template<class Translation, class Rotation>
 typename TwistBase<Translation, Rotation>::LinearVelocity
 TwistBase<Translation, Rotation>::linear () const {
-	return coeffs.slice (0, 0, LinearVelocity::Dim);
+	// + sign fixes ODR violation issue prior to C++ 17
+	return coeffs.slice (0, 0, +LinearVelocity::Dim);
 }
 
 template<class Translation, class Rotation>
 typename TwistBase<Translation, Rotation>::AngularVelocity
 TwistBase<Translation, Rotation>::angular () const {
-	return coeffs.slice (0, LinearVelocity::Dim, LinearVelocity::Dim + AngularVelocity::Dim);
+	// + sign fixes ODR violation issue prior to C++ 17
+	return coeffs.slice (0, +LinearVelocity::Dim, +LinearVelocity::Dim + AngularVelocity::Dim);
 }
 
 template<class Translation, class Rotation>
@@ -173,7 +183,9 @@ TwistBase<Translation, Rotation>::exp () const {
 template<class Translation, class Rotation>
 TwistBase<Translation, Rotation> TwistBase<Translation, Rotation>::scale(const TwistBase::DataType &other) const
 {
+	assert (other.sizes().size() == 1 && other.size(0) == 2 && "Scaling tensor must be 1D and with exactly two elemenents");
 
+	return TwistBase (linear() * other[0], angular() * other[1]);
 }
 
 }

@@ -21,6 +21,8 @@
 #include <pcl/keypoints/narf_keypoint.h>
 #include <pcl/io/pcd_io.h>
 
+#include <manif/SE2.h>
+
 using namespace ros;
 using namespace std;
 using namespace torch;
@@ -29,7 +31,12 @@ using namespace Eigen;
 Test::Ptr tester;
 
 SlifeNode::SlifeNode ():
-	SparcsNode(NODE_NAME)
+	SparcsNode(NODE_NAME),
+	slifeHandler(std::bind (
+				   &SlifeNode::publishTensor,
+				   this,
+				   std::placeholders::_1,
+				   std::placeholders::_2))
 {
 	initParams ();
 	initROS ();
@@ -43,12 +50,34 @@ void SlifeNode::initParams () {
 void SlifeNode::initROS () {
 	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2, &SlifeNode::pointcloudCallback);
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
+	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
+	addPub<std_msgs::Float32MultiArray> ("debug_1", paramString(params["topics"], "debug_1"), 1);
+	addPub<std_msgs::Float32MultiArray> ("debug_2", paramString(params["topics"], "debug_2"), 1);
 }
 
 int SlifeNode::actions ()  {
 	return slifeHandler.synchronousActions();
 }
 
+void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor)
+{
+	MultiArray32Manager array(vector<int> (tensor.sizes().begin(), tensor.sizes().end()));
+
+	memcpy (array.data ().data(), tensor.data_ptr(), tensor.element_size() * tensor.numel ());
+	auto tensorMsg = array.getMsg();
+
+	switch (outputType) {
+	case SlifeHandler::OUTPUT_ESTIMATE:
+		publish ("estimate", tensorMsg);
+		break;
+	case SlifeHandler::OUTPUT_DEBUG_1:
+		publish ("debug_1", tensorMsg);
+		break;
+	case SlifeHandler::OUTPUT_DEBUG_2:
+		publish ("debug_2", tensorMsg);
+		break;
+	}
+}
 
 // WARNING: takes 5-10ms
 void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
@@ -59,24 +88,14 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 	double taken;
 	ROS_WARN ("Full Tensor loading");
 	PROFILE (taken, [&]{
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // TEMP REMOVE {pclSize, 4},
+		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // put this back for real pcl -> {pclSize, 4},
 									  torch::TensorOptions().dtype(torch::kFloat32));
 					    // REMOVING TEMPORARLY FOR SYNTHETIC PCL TESTS
 					    // .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
 	});
-	cout << pointcloudTensor << endl;
+
 	ROS_WARN ("Finding only finite points");
 	PROFILE (taken,[&]{
-		/*torch::Tensor validPointcloud = torch::empty_like(pointcloudTensor);
-		int j = 0;
-		for (int i = 0; i < pointcloudTensor.size(0); i++) {
-			cout << pointcloudTensor[i].isfinite();
-			/*if (pointcloudTensor[i].isfinite().sum(0)) {
-				validPointcloud[j] = pointcloudTensor[i];
-				j++;
-			}
-		}
-		pointcloudTensor = validPointcloud.index ({torch::indexing::Slice(0,j),torch::indexing::Ellipsis});*/
 		torch::Tensor validIdxes = (torch::isfinite(pointcloudTensor).sum(1)).nonzero();
 		pointcloudTensor = pointcloudTensor.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
 	});

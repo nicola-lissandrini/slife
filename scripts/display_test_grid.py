@@ -8,7 +8,7 @@ from std_msgs.msg import Float32MultiArray
 import matplotlib.pyplot as plt
 import math
 
-grid_topic = "/slife/debug_grid"
+grid_topic = "/slife/debug/grid"
 
 # Type enum
 TEST_NONE = 0

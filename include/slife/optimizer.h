@@ -29,9 +29,7 @@ public:
 
 	virtual Vector value (const LieGroup &x) = 0;
 	virtual Tangent gradient (const LieGroup &x) = 0;
-	bool isReady () {
-		return flags.isReady();
-	}
+	virtual bool isReady () const = 0;
 
 	DEF_SHARED(CostFunction)
 
@@ -52,9 +50,15 @@ class Optimizer
 	using Coeffs = typename LieGroup::DataType;
 
 public:
+	enum InitializationType {
+		INITIALIZATION_IDENTITY = 0
+	};
 	struct Params {
 		torch::Tensor stepSizes;
 		torch::Tensor threshold;
+		InitializationType initializationType;
+		torch::Tensor maxIterations;
+		bool recordHistory;
 
 		DEF_SHARED(Params)
 	};
@@ -62,6 +66,9 @@ public:
 private:
 	Params params;
 	typename CostFunction<LieGroup>::Ptr costFunction;
+	std::vector<LieGroup> history;
+
+	LieGroup getInitialValue ();
 
 public:
 	Optimizer (const typename Params::Ptr &_params,
@@ -70,7 +77,8 @@ public:
 		costFunction(_costFunction)
 	{}
 
-	LieGroup optimize (const LieGroup &initialValue);
+	LieGroup optimize ();
+	std::vector<LieGroup> getHistory () const;
 
 	DEF_SHARED(Optimizer)
 };
@@ -101,11 +109,15 @@ public:
 	Tangent gradient (const lietorch::Pose &x);
 
 	void updatePointcloud (const Pointcloud &pointcloud);
+	bool isReady () const;
 
 	Tensor test (Test::Type type);
 
 	DEF_SHARED (PointcloudMatch)
 };
+
+template
+class Optimizer<lietorch::Pose>;
 
 using PoseOptimizer = Optimizer<lietorch::Pose>;
 

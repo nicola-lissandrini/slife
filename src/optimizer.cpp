@@ -6,17 +6,36 @@ using namespace lietorch;
 
 
 template<class LieGroup>
-LieGroup Optimizer<LieGroup>::optimize (const LieGroup &initialValue)
+LieGroup Optimizer<LieGroup>::getInitialValue()
 {
-	LieGroup state = initialValue;
+	switch (params.initializationType) {
+	case INITIALIZATION_IDENTITY:
+		return LieGroup ();
+	default:
+		assert (false && "Initialization not supported");
+	}
+}
+
+template<class LieGroup>
+LieGroup Optimizer<LieGroup>::optimize ()
+{
+	LieGroup state = getInitialValue ();
 	bool terminationCondition = false;
 	int iterations = 0;
 
 	while (!terminationCondition) {
-		LieGroup nextState = state - costFunction->gradient (state) * params.stepSizes;
+		if (params.recordHistory)
+			history.push_back(state);
 
-		terminationCondition = ((nextState - state).norm () < params.threshold) ||
-						   (iterations >= params.maxIterations);
+		typename LieGroup::Tangent gradient = costFunction->gradient (state);
+		LieGroup nextState = state - gradient * params.stepSizes;
+
+		COUTN(state);
+		COUTN(gradient);
+		COUTN(gradient*params.stepSizes);
+
+		terminationCondition = ((nextState - state).norm () < params.threshold).item().toBool() ||
+						   (iterations >= params.maxIterations).item().toBool ();
 
 		state = nextState;
 
@@ -26,6 +45,11 @@ LieGroup Optimizer<LieGroup>::optimize (const LieGroup &initialValue)
 	return state;
 }
 
+template<class LieGroup>
+vector<LieGroup> Optimizer<LieGroup>::getHistory() const {
+	return history;
+}
+
 PointcloudMatch::PointcloudMatch (const Landscape::Params::Ptr &landscapeParams,
 						    const Params::Ptr &pointcloudMatchParams):
 	CostFunction(pointcloudMatchParams),
@@ -33,6 +57,10 @@ PointcloudMatch::PointcloudMatch (const Landscape::Params::Ptr &landscapeParams,
 {
 	flags.addFlag("old_pointcloud");
 	flags.addFlag("new_pointcloud");
+}
+
+bool PointcloudMatch::isReady() const {
+	return flags.isReady();
 }
 
 void PointcloudMatch::updatePointcloud(const Pointcloud &pointcloud)
@@ -50,12 +78,13 @@ PointcloudMatch::Tangent PointcloudMatch::gradient(const Pose &x)
 	Pointcloud predicted = x * oldPcl.squeeze();
 	Tangent totalGradient;
 
+
 	for (int i = 0; i < predicted.size(0); i++) {
 		const Tensor &curr = predicted[i];
 
 		totalGradient += x.differentiate(landscape.gradient (curr), curr);
 	}
-	cout << totalGradient.coeffs << endl;
+
 	return totalGradient;
 }
 
