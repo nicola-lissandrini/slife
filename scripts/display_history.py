@@ -16,7 +16,7 @@ class Pose:
         self.t = torch.tensor (t,dtype=torch.float)
         self.q = torch.tensor (q,dtype=torch.float)
 
-ground_truth = Pose([0.5,0.0,0.0],[0,0,0,1])
+ground_truth = Pose([0.1,0.0,0.0],[0.0871557, 0, 0, 0.9961947])
 
 
 def handle_close (fig):
@@ -37,10 +37,11 @@ class DisplayHistoryNode:
     def process_data (self, tensor):
         t = tensor[:,0:3]
         q = tensor[:,3:]
-
-        error = (t - ground_truth.t).norm (2,1)
         
-        return error
+        error_t = (t - ground_truth.t).norm (2,1)
+        error_q = (q - ground_truth.q).norm (2,1)
+        
+        return error_t, error_q
 
     def draw (self):
         if (self.tensor is None):
@@ -48,9 +49,14 @@ class DisplayHistoryNode:
 
         self.fig.clear ()
 
-        error = self.process_data (self.tensor)
+        error_t, error_q = self.process_data (self.tensor)
         
-        plt.plot (error)
+        #plt.plot (self.tensor[:,0], self.tensor[:,1])
+        plt.plot(error_t, label="translation")
+        plt.plot(error_q, label="rotation")
+        plt.xlabel ("# iterations")
+        plt.ylabel ("error norm (chordal metrics)")
+        plt.legend ()
         plt.grid ()
         plt.draw ()
 

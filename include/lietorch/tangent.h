@@ -114,7 +114,7 @@ Derived Tangent<Derived>::scale(const DataType &other) const {
 template<class Derived>
 typename Tangent<Derived>::DataType
 Tangent<Derived>::norm () const {
-	return coeffs.norm ();
+	return derived().norm ();
 }
 
 template<class Derived>

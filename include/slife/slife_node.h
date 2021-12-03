@@ -1,7 +1,7 @@
 #ifndef SLIFE_NODE_H
 #define SLIFE_NODE_H
 
-#include "sparcsnode.h"
+#include "sparcsnode/sparcsnode.h"
 #include "slife/slife_handler.h"
 #include "test.h"
 #define NODE_NAME "slife"

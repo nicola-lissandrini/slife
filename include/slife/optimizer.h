@@ -6,6 +6,8 @@
 #include <ATen/Tensor.h>
 #include <ATen/TensorOperators.h>
 #include <ATen/Layout.h>
+#include <type_traits>
+#include <functional>
 
 #include "landscape.h"
 #include "lietorch/pose.h"
@@ -43,50 +45,23 @@ CostFunction<LieGroup>::CostFunction  (const typename Params::Ptr &params):
 	paramsData(params)
 {}
 
+#define INHERIT_TRAITS(_Base) \
+	using Base = _Base; \
+	using Tangent = typename Base::Tangent;\
+	using Coeffs = typename Base::Coeffs;\
+	using Vector = typename Base::Vector;\
+	using Base::paramsData;
+
+
+using TestFcn = std::function<Tensor(Tensor)>;
+
 template<class LieGroup>
-class Optimizer
+class PointcloudMatch : public CostFunction<LieGroup>
 {
-	using Vector = typename LieGroup::Vector;
-	using Coeffs = typename LieGroup::DataType;
+	INHERIT_TRAITS(CostFunction<LieGroup>)
 
 public:
-	enum InitializationType {
-		INITIALIZATION_IDENTITY = 0
-	};
-	struct Params {
-		torch::Tensor stepSizes;
-		torch::Tensor threshold;
-		InitializationType initializationType;
-		torch::Tensor maxIterations;
-		bool recordHistory;
-
-		DEF_SHARED(Params)
-	};
-
-private:
-	Params params;
-	typename CostFunction<LieGroup>::Ptr costFunction;
-	std::vector<LieGroup> history;
-
-	LieGroup getInitialValue ();
-
-public:
-	Optimizer (const typename Params::Ptr &_params,
-			 const typename CostFunction<LieGroup>::Ptr &_costFunction):
-		params(*_params),
-		costFunction(_costFunction)
-	{}
-
-	LieGroup optimize ();
-	std::vector<LieGroup> getHistory () const;
-
-	DEF_SHARED(Optimizer)
-};
-
-class PointcloudMatch : public CostFunction<lietorch::Pose>
-{
-public:
-	struct Params : public CostFunction<lietorch::Pose>::Params {
+	struct Params : public CostFunction<LieGroup>::Params {
 		int batchSize;
 
 		DEF_SHARED(Params)
@@ -103,22 +78,74 @@ protected:
 
 public:
 	PointcloudMatch (const Landscape::Params::Ptr &landscapeParams,
-				  const Params::Ptr &pointcloudMatchParams);
+				  const typename Params::Ptr &pointcloudMatchParams);
 
-	Vector value (const lietorch::Pose &x);
-	Tangent gradient (const lietorch::Pose &x);
+	Vector value (const LieGroup &x);
+	Tangent gradient (const LieGroup &x);
 
 	void updatePointcloud (const Pointcloud &pointcloud);
 	bool isReady () const;
 
+	// Test
 	Tensor test (Test::Type type);
+
+	// Cost testing only implemented for Position or Pose
+	TestFcn getCostLambda (Test::Type);
 
 	DEF_SHARED (PointcloudMatch)
 };
 
-template
-class Optimizer<lietorch::Pose>;
 
-using PoseOptimizer = Optimizer<lietorch::Pose>;
+template<class LieGroup, class TargetCostFunction>
+class Optimizer
+{
+	using Vector = typename LieGroup::Vector;
+	using Coeffs = typename LieGroup::DataType;
 
+public:
+	enum InitializationType {
+		INITIALIZATION_IDENTITY = 0
+	};
+	struct Params {
+		torch::Tensor stepSizes;
+		torch::Tensor normWeights;
+		torch::Tensor threshold;
+		InitializationType initializationType;
+		torch::Tensor maxIterations;
+		bool recordHistory;
+
+		DEF_SHARED(Params)
+	};
+
+private:
+	Params params;
+	typename TargetCostFunction::Ptr costFunctionPtr;
+	std::vector<LieGroup> history;
+
+	LieGroup getInitialValue ();
+
+public:
+	Optimizer (const typename Params::Ptr &_params,
+			 const typename TargetCostFunction::Ptr &_costFunctionPtr):
+		params(*_params),
+		costFunctionPtr(_costFunctionPtr)
+	{}
+
+	LieGroup optimize ();
+	typename TargetCostFunction::Ptr costFunction () {
+		return costFunctionPtr;
+	}
+
+	std::vector<LieGroup> getHistory () const;
+
+	DEF_SHARED(Optimizer)
+};
+
+
+// Supported optimziation types
+template<class LieGroup>
+using PointcloudMatchOptimizer = Optimizer<LieGroup, PointcloudMatch<LieGroup>>;
+
+using PositionOptimizer = PointcloudMatchOptimizer<lietorch::Position>;
+using PoseOptimizer = PointcloudMatchOptimizer<lietorch::Pose>;
 #endif // LOCALIZE_H

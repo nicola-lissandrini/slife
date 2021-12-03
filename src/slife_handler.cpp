@@ -1,34 +1,34 @@
 #include "slife/slife_handler.h"
 
-#include <octomap/OcTree.h>
-
 using namespace std;
 using namespace torch;
 using namespace lietorch;
 
-SlifeHandler::SlifeHandler(TensorPublisher _tensorPublishCallback):
-	tensorPublishCallback(_tensorPublishCallback)
+SlifeHandler::SlifeHandler(const SlifeHandler::TensorPublisher &_tensorPublisher):
+	tensorPublishCallback(_tensorPublisher)
 {
 	flags.addFlag ("initialized", true);
 }
 
-void SlifeHandler::updatePointcloud (const Tensor &pointcloud) {
-	costFunction->updatePointcloud(pointcloud);
+void SlifeHandler::updatePointcloud (const Tensor &pointcloud)
+{
+	optimizer->costFunction()->updatePointcloud(pointcloud);
 
-	if (costFunction->isReady()) {
-		lietorch::Pose estimate = optimizer->optimize();
+	if (optimizer->costFunction()->isReady())
+	{
+		TargetGroup estimate = optimizer->optimize();
 
 		tensorPublishCallback (OUTPUT_ESTIMATE, estimate.coeffs);
-		tensorPublishCallback (OUTPUT_DEBUG_1, historyToTensor (optimizer->getHistory ()));
+		tensorPublishCallback (OUTPUT_DEBUG_1,  historyToTensor (optimizer->getHistory ()));
 	}
 }
 
-Tensor SlifeHandler::historyToTensor (const std::vector<Pose> &historyVector)
+Tensor SlifeHandler::historyToTensor (const std::vector<TargetGroup> &historyVector)
 {
-	Tensor historyTensor = torch::empty({historyVector.size(), Pose::Dim}, kFloat);
+	Tensor historyTensor = torch::empty({historyVector.size(), TargetGroup::Dim}, kFloat);
 	int i = 0;
 
-	for (Pose curr : historyVector) {
+	for (auto curr : historyVector) {
 		historyTensor[i] = curr.coeffs;
 		i++;
 	}
@@ -41,15 +41,16 @@ void SlifeHandler::test ()
 	Test::Type testWhat = tester->getType();
 	Tensor testValues;
 
-	testValues = costFunction->test (testWhat);
+	testValues = optimizer->costFunction()->test (testWhat);
 
 	if (testValues.numel ())
 		tester->publishRangeTensor (testWhat, testValues);
 }
 
+
 int SlifeHandler::synchronousActions ()
 {
-	if (costFunction->isReady())
+	if (optimizer->costFunction()->isReady())
 		test ();
 
 	return 0;
@@ -57,37 +58,65 @@ int SlifeHandler::synchronousActions ()
 
 void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 {
+	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr optimizerParams = getOptimizerParams (xmlParams["optimizer"]);
+	typename PointcloudMatch<TargetGroup>::Params::Ptr costFunctionParams = getCostFunctionParams (xmlParams["optimizer"]["cost"]);
 	Landscape::Params::Ptr landscapeParams = getLandscapeParams(xmlParams["landscape"]);
-	PoseOptimizer::Params::Ptr optimizerParams = getOptimizerParams(xmlParams["optimizer"]);
-	PointcloudMatch::Params::Ptr costFunctionParams = getCostFunctionParams(xmlParams["optimizer"]["cost"]);
 
-	costFunction = make_shared<PointcloudMatch> (landscapeParams,
-										costFunctionParams);
-	optimizer = make_shared<PoseOptimizer> (optimizerParams,
-									dynamic_pointer_cast<CostFunction<lietorch::Pose>> (costFunction));
+	optimizer = make_shared<PointcloudMatchOptimizer<TargetGroup>> (optimizerParams,
+													    make_shared<PointcloudMatch<TargetGroup>> (landscapeParams,
+																						  costFunctionParams));
 
-	params.synthPclSize = paramInt (xmlParams, "synth_pcl_size");
+	params = getHandlerParams (xmlParams);
 
 	flags.set ("initialized");
 }
 
-PointcloudMatch::Params::Ptr SlifeHandler::getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams)
+typename SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlParams)
 {
-	PointcloudMatch::Params::Ptr costFunctionParams = make_shared<PointcloudMatch::Params> ();
+	Params params;
+
+	params.synthPclSize = paramInt (xmlParams, "synth_pcl_size");
+	params.targetOptimizationGroup = paramEnum<TargetOptimizationGroup> (xmlParams, "target_optimization_group",{"position","quaternion_r4","pose","dual_quaternion"});
+
+	switch (params.targetOptimizationGroup) {
+	case TARGET_POSITION:
+		assert (typeid(TargetGroup) == typeid(Position) && "Need to recompile the project with using TargetGroup = lietorch::Position");
+		break;
+	case TARGET_QUATERNION_R4:
+		assert (typeid(TargetGroup) == typeid(QuaternionR4) && "Need to recompile the project with using TargetGroup = lietorch::UnitQuaternionR4");
+		break;
+	case TARGET_POSE:
+		assert (typeid(TargetGroup) == typeid(Pose) && "Need to recompile the project with using TargetGroup = lietorch::Pose");
+		break;
+	case TARGET_DUAL_QUATERNION:
+	default:
+		assert (false && "Supplied target group id not supported");
+		break;
+	}
+
+	return params;
+}
+
+typename PointcloudMatch<TargetGroup>::Params::Ptr
+SlifeHandler::getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams)
+{
+	typename PointcloudMatch<TargetGroup>::Params::Ptr costFunctionParams = make_shared<PointcloudMatch<TargetGroup>::Params> ();
 
 	costFunctionParams->batchSize = paramInt (xmlParams, "batch_size");
 
 	return costFunctionParams;
 }
 
-PoseOptimizer::Params::Ptr SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
+typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr
+SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
 {
-	PoseOptimizer::Params::Ptr optimizerParams = make_shared<PoseOptimizer::Params> ();
+	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr optimizerParams = make_shared<PointcloudMatchOptimizer<TargetGroup>::Params> ();
 
 	optimizerParams->stepSizes = paramTensor<float> (xmlParams, "step_sizes");
+	optimizerParams->normWeights = paramTensor<float> (xmlParams, "norm_weights");
 	optimizerParams->threshold = paramTensor<float> (xmlParams, "threshold");
 	optimizerParams->maxIterations = paramTensor<float> (xmlParams, "max_iterations");
-	optimizerParams->initializationType = paramEnum<PoseOptimizer::InitializationType> (xmlParams, "initialization_type",{"identity"});
+	optimizerParams->initializationType = paramEnum<PointcloudMatchOptimizer<TargetGroup>::InitializationType> (xmlParams, "initialization_type",{"identity"});
 	optimizerParams->recordHistory = paramBool (xmlParams, "record_history");
 
 	return optimizerParams;

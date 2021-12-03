@@ -8,13 +8,13 @@ namespace lietorch {
 #define LIETORCH_QUATERNION_DIM 4
 #define LIETORCH_POSITION_DIM 3
 
-class UnitQuaternionR4;
+class QuaternionR4;
 class QuaternionR4Velocity;
 
 namespace internal {
 
 template<>
-struct traits<UnitQuaternionR4>
+struct traits<QuaternionR4>
 {
 	static constexpr int Dim = LIETORCH_QUATERNION_DIM;
 	static constexpr int ActDim = LIETORCH_POSITION_DIM;
@@ -24,16 +24,39 @@ struct traits<UnitQuaternionR4>
 	using DataType = torch::Tensor;
 };
 
+
 template<>
 struct traits<QuaternionR4Velocity>
 {
 	static constexpr int Dim = LIETORCH_QUATERNION_DIM;
 
 	using LieAlg = torch::Tensor;
-	using LieGroup = UnitQuaternionR4;
+	using LieGroup = QuaternionR4;
 };
 
 }
+namespace quaternion_operations
+{
+using Tensor = torch::Tensor;
+
+// Quaternion operations
+Tensor action (const Tensor &q, const Tensor &v);
+Tensor composition (const Tensor &q1, const Tensor &q2);
+Tensor conjugate (const Tensor &q);
+Tensor log (const Tensor &q);
+Tensor actionJacobian (const Tensor &q, const Tensor &v);
+Tensor normalize (const Tensor &q);
+Tensor imag (const Tensor &q);
+// Tangent operations
+Tensor exp (const Tensor &tangentQuat);
+
+Tensor x (const Tensor &q);
+Tensor y (const Tensor &q);
+Tensor z (const Tensor &q);
+Tensor w (const Tensor &q);
+
+}
+
 
 class QuaternionR4Velocity : public Tangent<QuaternionR4Velocity>
 {
@@ -48,52 +71,51 @@ public:
 	LieAlg generator(int i) const;
 	LieAlg hat () const;
 	LieGroup exp () const;
+	DataType norm () const;
 	QuaternionR4Velocity scale (const DataType &other) const;
 
 	friend Base;
 };
 
-class UnitQuaternionR4 : public LieGroup<UnitQuaternionR4>
+class QuaternionR4 : public LieGroup<QuaternionR4>
 {
-	using Base = LieGroup<UnitQuaternionR4>;
+	using Base = LieGroup<QuaternionR4>;
 
 protected:
 
 	torch::Tensor imag() const;
 
-	UnitQuaternionR4 (const torch::TensorList &coeffsList);
+	QuaternionR4 (const torch::TensorList &coeffsList);
 
 public:
 	LIETORCH_INHERIT_GROUP_TRAITS
 
 	using Base::coeffs;
 
-	UnitQuaternionR4 ();
-	UnitQuaternionR4 (const UnitQuaternionR4 &other);
-	UnitQuaternionR4 (const DataType &_coeffs);
-	UnitQuaternionR4 (float x, float y, float z, float w);
+	QuaternionR4 ();
+	QuaternionR4 (const QuaternionR4 &other);
+	QuaternionR4 (const DataType &_coeffs);
+	QuaternionR4 (float x, float y, float z, float w);
 
-	UnitQuaternionR4 inverse () const;
+	QuaternionR4 inverse () const;
 	Tangent log () const;
-	UnitQuaternionR4 compose (const UnitQuaternionR4 &o) const;
+	QuaternionR4 compose (const QuaternionR4 &o) const;
+	DataType dist (const QuaternionR4 &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
 	Tangent differentiate (const Vector &outerGradient, const Vector &v) const;
 
 
 	// Quaternion specific functions
 	void normalize_ ();
-	UnitQuaternionR4 normalized();
+	QuaternionR4 normalized();
 
 	torch::Tensor x () const;
 	torch::Tensor y () const;
 	torch::Tensor z () const;
 	torch::Tensor w () const;
 
-	UnitQuaternionR4 conj () const;
+	QuaternionR4 conj () const;
 	friend Base;
-
-private:
-	using Base::jacobian;
 };
 
 }

@@ -15,7 +15,7 @@ class Pose:
         self.t = torch.tensor (t,dtype=torch.float)
         self.q = torch.tensor (q,dtype=torch.float)
 
-ground_truth = Pose([0.5,0.0,0.0],[0,0,0,1])
+ground_truth = Pose([0.1,0.0,0.0],[0.0871557, 0, 0, 0.9961947])
 
 def quat2rot (quat):
     x = quat[0]
@@ -56,9 +56,9 @@ class SynthPclNode:
         rospy.init_node ("synth_pcl")
         self.pcl_pub = rospy.Publisher (synth_pcl_topic, PointCloud2, queue_size=1)
     
-    def get_pcl (self):
-        return torch.rand ([points_count, 3], dtype=torch.float)
-        #return torch.tensor ([[-0.5,0.5,0],[0.5,0,0],[0,-0.5,0]], dtype=torch.float32)
+    def create_pcl (self):
+        self.pcl = torch.rand ([points_count, 3], dtype=torch.float)
+        #self.pcl = torch.tensor ([[-0.5,0.5,0],[0.5,0,0],[0,-0.5,0]], dtype=torch.float32)
 
     def transform (self, pcl: torch.Tensor, pose: Pose):
         pos = pose.t.unsqueeze (0)
@@ -67,12 +67,10 @@ class SynthPclNode:
         return rotm.mm (pcl.transpose(0,1)).transpose(0,1) + pos
 
     def send_pcl (self, do_transform: bool):
-        pcl = self.get_pcl ()
-
         if (do_transform):
-            pcl = self.transform (pcl, ground_truth)
+            self.pcl = self.transform (self.pcl, ground_truth)
 
-        self.publish (pcl)
+        self.publish (self.pcl)
 
     def publish (self, pcl: torch.Tensor):
         pclMsg = PointCloud2 ()
@@ -83,6 +81,7 @@ class SynthPclNode:
 
     def spin (self):
         rospy.sleep (1)
+        self.create_pcl ()
         self.send_pcl (False)
         rospy.sleep (0.5)
         self.send_pcl (True)

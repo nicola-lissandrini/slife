@@ -7,7 +7,7 @@
 #include <ATen/Tensor.h>
 #include <ATen/TensorOperators.h>
 #include <ATen/Layout.h>
-
+#include "sparcsnode/utils.h"
 #include "tangent.h"
 
 namespace lietorch {
@@ -50,11 +50,6 @@ protected:
 	inline Derived &derived () { return *static_cast<Derived*>(this); }
 	inline const Derived &derived () const { return *static_cast<const Derived*>(this); }
 
-	Jacobian jacobian;
-
-private:
-	void initJacobian ();
-
 public:
 	DataType coeffs;
 
@@ -67,6 +62,7 @@ public:
 	Derived inverse () const;
 	Tangent log () const;
 	Derived compose (const Derived &other) const;
+	DataType dist (const Derived &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
 	Tangent differentiate (const Vector &outerGradient, const Vector &v) const;
 
@@ -101,15 +97,9 @@ std::ostream &operator << (std::ostream &os, const LieGroup<Derived> &l) {
 	return os;
 }
 
-template<typename Derived>
-void LieGroup<Derived>::initJacobian() {
-	jacobian = torch::empty ({ActDim, Dim}, torch::kFloat);
-}
-
 // Copy
 template<typename Derived>
 LieGroup<Derived>::LieGroup() {
-	initJacobian();
 	setIdentity();
 }
 
@@ -118,8 +108,6 @@ LieGroup<Derived>::LieGroup(const LieGroup::DataType &_coeffs):
 	coeffs(_coeffs)
 {
 	assert (coeffs.sizes().size() == 1 && coeffs.size(0) == Dim && "Incompatible initialization tensor size");
-
-	initJacobian();
 }
 
 template<class Derived>
@@ -158,6 +146,12 @@ LieGroup<Derived>::log() const {
 template<class Derived>
 Derived LieGroup<Derived>::compose(const Derived &other) const {
 	return derived().compose (other);
+}
+
+template<class Derived>
+typename LieGroup<Derived>::DataType
+LieGroup<Derived>::dist (const Derived &other, const DataType &weights) const {
+	return derived().dist (other, weights);
 }
 
 template<class Derived>
