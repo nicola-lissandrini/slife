@@ -100,10 +100,10 @@ PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 	{
 		autograd::profiler::RecordProfile rp("/home/nicola/one.trace");
 	for (int i = 0; i < predicted.size(0); i++) {
-		//const Tensor &curr = ;
-		//const Tensor &currGrad = ;
+		const Tensor &curr = predicted[i];
+		const Tensor &currGrad = landscape.gradient(curr);
 
-		totalGradient += x.differentiate(landscape.gradient(predicted[i]), predicted[i]);
+		totalGradient += x.differentiate(currGrad, curr);
 	}
 	}
 
