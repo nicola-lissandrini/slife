@@ -128,10 +128,7 @@
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/test_quaternion.cpp">
-			<Option target="test_lietorch"/>
-		</Unit>
-		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/quaternion.cpp">
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/test_tensor_init.cpp">
 			<Option target="test_lietorch"/>
 		</Unit>
 		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/CMakeLists.txt">

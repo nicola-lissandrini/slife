@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.0.2)
 project(slife)
 
 add_compile_options(-std=c++14)
-add_compile_options(-Werror=return-type)
 add_compile_options(-DEIGEN_STACK_ALLOCATION_LIMIT=0)
+#add_compile_options(-fno-inline-small-functions)
+
 
 find_package(catkin REQUIRED COMPONENTS
 	roscpp
@@ -20,12 +21,12 @@ find_package(PCL REQUIRED)
 
 catkin_package (
 	INCLUDE_DIRS include ${TORCH_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS}
-	LIBRARIES sparcsnode systems_lib
+	LIBRARIES sparcsnode
 )
 
 include_directories(
 	include
-	../sparcslib/include
+	../sparcsnode/include
 	${catkin_INCLUDE_DIRS}
 	${PCL_INCLUDE_DIRS}
 	${TORCH_INCLUDE_DIRS}
@@ -38,7 +39,8 @@ add_executable(slife
 	src/slife_handler.cpp
 	src/optimizer.cpp
 	src/landscape.cpp
-	src/quaternion.cpp)
-target_link_libraries (slife ${catkin_LIBRARIES} ${TORCH_LIBRARIES} ${PCL_LIBRARIES} sparcsnode systems_lib)
+	src/quaternion.cpp
+	src/pose.cpp)
+target_link_libraries (slife ${catkin_LIBRARIES} ${TORCH_LIBRARIES} ${PCL_LIBRARIES} sparcsnode)
 add_dependencies(slife ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

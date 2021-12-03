@@ -7,7 +7,7 @@
 #include <ATen/TensorOperators.h>
 #include <ATen/Layout.h>
 
-#include "common.h"
+#include "sparcsnode/common.h"
 
 using Pointcloud = torch::Tensor;
 using Scalar = float_t;

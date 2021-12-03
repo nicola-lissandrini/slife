@@ -49,6 +49,7 @@ public:
 	LieAlg generator(int i) const;
 	LieAlg hat () const;
 	LieGroup exp () const;
+	DataType norm () const;
 	VelocityRn scale(const DataType &other) const;
 };
 
@@ -68,6 +69,7 @@ public:
 	Rn inverse () const;
 	Tangent log () const;
 	Rn compose (const Rn &other) const;
+	DataType dist (const Rn &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
 	Tangent differentiate (const DataType &outerGradient, const Vector &v) const;
 
@@ -88,6 +90,13 @@ Rn<_N>::log() const {
 template<int _N>
 Rn<_N>  Rn<_N>::compose (const Rn<_N> &other) const {
 	return Rn(coeffs + other.coeffs);
+}
+
+template<int _N>
+typename Rn<_N>::DataType Rn<_N>::dist(const Rn<_N> &other, const DataType &weights) const {
+	assert ((weights.dim() == 1 && weights.size(0) == 1) && "Rn must be weighted by a 1d scalar");
+
+	return (coeffs - other.coeffs).norm();
 }
 
 template<int _N>
@@ -113,6 +122,10 @@ typename VelocityRn<_N>::LieGroup VelocityRn<_N>::exp () const {
 	return LieGroup (coeffs);
 }
 
+template<int _N>
+typename VelocityRn<_N>::DataType VelocityRn<_N>::norm() const {
+	return coeffs.norm();
+}
 
 template<int _N>
 VelocityRn<_N> VelocityRn<_N>::scale(const DataType &other) const

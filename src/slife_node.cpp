@@ -1,5 +1,5 @@
 #include "slife/slife_node.h"
-#include "multi_array_manager.h"
+#include "sparcsnode/multi_array_manager.h"
 
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
@@ -43,8 +43,8 @@ SlifeNode::SlifeNode ():
 }
 
 void SlifeNode::initParams () {
-	slifeHandler.init(params);
 	tester = make_shared<Test> (params["debug"], shared_ptr<SlifeNode> (this));
+	slifeHandler.init(params);
 }
 
 void SlifeNode::initROS () {
@@ -90,8 +90,8 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 	PROFILE (taken, [&]{
 		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // put this back for real pcl -> {pclSize, 4},
 									  torch::TensorOptions().dtype(torch::kFloat32));
-					    // REMOVING TEMPORARLY FOR SYNTHETIC PCL TESTS
-					    // .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
+		// REMOVING TEMPORARLY FOR SYNTHETIC PCL TESTS
+		// .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
 	});
 
 	ROS_WARN ("Finding only finite points");
@@ -99,6 +99,7 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 		torch::Tensor validIdxes = (torch::isfinite(pointcloudTensor).sum(1)).nonzero();
 		pointcloudTensor = pointcloudTensor.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
 	});
+
 
 	slifeHandler.updatePointcloud(pointcloudTensor);
 }
@@ -156,7 +157,7 @@ void Test::initParams (XmlRpc::XmlRpcValue &xmlParams)
 }
 
 Test::Test (XmlRpc::XmlRpcValue &xmlParams,
-				const std::shared_ptr<SlifeNode> &_nodePtr):
+		  const std::shared_ptr<SlifeNode> &_nodePtr):
 	nodePtr(_nodePtr)
 {
 	initParams (xmlParams);

@@ -6,10 +6,12 @@
 #include <ATen/TensorOperators.h>
 #include <ATen/Layout.h>
 
-#include "common.h"
+#include "sparcsnode/common.h"
 #include "optimizer.h"
 #include "landscape.h"
 #include "test.h"
+
+using TargetGroup = lietorch::Pose;
 
 class SlifeHandler
 {
@@ -20,9 +22,17 @@ public:
 		OUTPUT_DEBUG_2
 	};
 
+	enum TargetOptimizationGroup {
+		TARGET_POSITION,
+		TARGET_QUATERNION_R4,
+		TARGET_POSE,
+		TARGET_DUAL_QUATERNION
+	};
+
 private:
 	struct Params {
 		int synthPclSize;
+		TargetOptimizationGroup targetOptimizationGroup;
 		DEF_SHARED (Params)
 	};
 	
@@ -30,27 +40,29 @@ private:
 
 	Params params;
 	ReadyFlags<std::string> flags;
-	PointcloudMatch::Ptr costFunction;
-	PoseOptimizer::Ptr optimizer;
+	typename PointcloudMatchOptimizer<TargetGroup>::Ptr optimizer;
 	TensorPublisher tensorPublishCallback;
 
-	Tensor historyToTensor (const std::vector<lietorch::Pose> &historyVector);
+	Tensor historyToTensor (const std::vector<TargetGroup> &historyVector);
 
-	PoseOptimizer::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
+	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
+	typename PointcloudMatch<TargetGroup>::Params::Ptr getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams);
+
 	Landscape::Params::Ptr getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams);
-	PointcloudMatch::Params::Ptr getCostFunctionParams(XmlRpc::XmlRpcValue &xmlParams);
+	SlifeHandler::Params getHandlerParams(XmlRpc::XmlRpcValue &xmlParams);
 
 	void test ();
 
 public:
-	SlifeHandler(TensorPublisher _tensorPublishCallback);
+	SlifeHandler(const TensorPublisher &_tensorPublisher);
 
 	void init (XmlRpc::XmlRpcValue &xmlParams);
 	void updatePointcloud (const torch::Tensor &pointcloud);
 
 	int synchronousActions ();
+
+	DEF_SHARED (SlifeHandler)
 };
 
-DEF_SHARED (SlifeHandler)
 
 #endif // SLIFE_HANDLER_H
