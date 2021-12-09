@@ -167,11 +167,12 @@ Quaternion::DataType Quaternion::dist (const Quaternion &other, const DataType &
 	return quaternion_operations::distanceRiemann (coeffs, other.coeffs);
 }
 
-AngularVelocity Quaternion::differentiate(const Vector &outerGradient, const Vector &v, const OpFcn &op) const
+AngularVelocity Quaternion::differentiate(const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<Tensor &> &jacobian) const
 {
-	Tensor jacobian = quaternion_operations::actionJacobian (coeffs, v);
-	Tensor gradientTensor = outerGradient.unsqueeze(1).matmul (jacobian).squeeze();
-
+	Tensor actionJacobian = quaternion_operations::actionJacobian (coeffs, v);
+	Tensor gradientTensor = outerGradient.unsqueeze(1).matmul (actionJacobian).squeeze();
+	if (jacobian)
+		*jacobian = gradientTensor;
 	return AngularVelocity (op (gradientTensor));
 }
 
@@ -265,11 +266,12 @@ QuaternionR4::DataType QuaternionR4::dist(const QuaternionR4 &other, const DataT
 }
 
 
-QuaternionR4Velocity QuaternionR4::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op) const
+QuaternionR4Velocity QuaternionR4::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<torch::Tensor &> &jacobian) const
 {
-	Tensor jacobian = quaternion_operations::actionJacobianR4 (coeffs, v);
-	Tensor gradientTensor = outerGradient.unsqueeze (1).matmul (jacobian).squeeze ();
-
+	Tensor actionJacobian = quaternion_operations::actionJacobianR4 (coeffs, v);
+	Tensor gradientTensor = outerGradient.unsqueeze (1).matmul (actionJacobian).squeeze ();
+	if (jacobian)
+		*jacobian = gradientTensor;
 	return QuaternionR4Velocity(op (gradientTensor));
 }
 

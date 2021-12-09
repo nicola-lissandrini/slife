@@ -72,7 +72,10 @@ public:
 	Rn compose (const Rn &other) const;
 	DataType dist (const Rn &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
-	Tangent differentiate (const DataType &outerGradient, const Vector &v, const OpFcn &op= OpIdentity) const;
+	Tangent differentiate (const DataType &outerGradient,
+					   const Vector &v,
+					   const OpFcn &op = OpIdentity,
+					   const boost::optional<torch::Tensor &> &jacobian = boost::none) const;
 
 };
 
@@ -106,8 +109,10 @@ typename Rn<_N>::Vector Rn<_N>::act (const Vector &v) const {
 }
 
 template<int _N>
-typename Rn<_N>::Tangent Rn<_N>::differentiate (const DataType &outerGradient, const Vector &v, const OpFcn &op) const {
+typename Rn<_N>::Tangent Rn<_N>::differentiate (const DataType &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<torch::Tensor &> &jacobian) const {
 	// Jacobian is the identity
+	if (jacobian)
+		*jacobian = outerGradient;
 	return op (outerGradient);
 }
 

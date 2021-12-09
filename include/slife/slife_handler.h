@@ -11,7 +11,7 @@
 #include "landscape.h"
 #include "test.h"
 
-using TargetGroup = lietorch::Pose;
+using TargetGroup = lietorch::Position;
 
 class SlifeHandler
 {

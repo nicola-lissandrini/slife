@@ -80,7 +80,10 @@ public:
 	PoseBase compose (const PoseBase &other) const;
 	DataType dist (const PoseBase &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
-	Tangent differentiate (const Vector &outerGradient, const Vector &v, const std::function<torch::Tensor(torch::Tensor)> &op = std::function<torch::Tensor(torch::Tensor)> ()) const;
+	Tangent differentiate (const Vector &outerGradient,
+					   const Vector &v,
+					   const OpFcn &op = OpIdentity,
+					   const boost::optional<torch::Tensor &> &jacobian = boost::none) const;
 
 	Translation translation () const;
 	Rotation rotation () const;

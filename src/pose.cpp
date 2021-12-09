@@ -75,7 +75,7 @@ PoseBase<Translation, Rotation>:: PoseBase::act (const Vector &v) const {
 
 template<class Translation, class Rotation>
 typename PoseBase<Translation, Rotation>::Tangent
-PoseBase<Translation, Rotation>::differentiate (const Vector &outerGradient, const Vector &v, const std::function<torch::Tensor(torch::Tensor)> &op) const {
+PoseBase<Translation, Rotation>::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<torch::Tensor &> &jacobian) const {
 	return Tangent (translation().differentiate (outerGradient, v, op),
 				 rotation().differentiate (outerGradient, v, op));
 }

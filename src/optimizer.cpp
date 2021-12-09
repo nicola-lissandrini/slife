@@ -73,19 +73,18 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 			history.push_back(state);
 
 		PROFILE(taken, [&]{
-		auto gradient = costFunction()->gradient (state);
-		COUTN(gradient.coeffs.norm());
-		COUTN((params.stepSizes / gradient.coeffs.norm().sqrt()))
+			auto gradient = costFunction()->gradient (state);
+			COUTN(gradient.coeffs.norm());
+			COUTN((params.stepSizes / gradient.coeffs.norm().sqrt()))
 
-		nextState = state - gradient * (params.stepSizes / gradient.coeffs.norm().sqrt());
+			nextState = state - gradient * (params.stepSizes / gradient.coeffs.norm().sqrt());
 
+			terminationCondition = (nextState.dist(state, params.normWeights) < params.threshold).item().toBool() ||
+							   (iterations >= params.maxIterations).item().toBool ();
 
-		terminationCondition = (nextState.dist(state, params.normWeights) < params.threshold).item().toBool() ||
-						   (iterations >= params.maxIterations).item().toBool ();
+			state = nextState;
 
-		state = nextState;
-
-		iterations++;
+			iterations++;
 
 		});
 		totalTaken += taken;
@@ -99,7 +98,7 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 
 template<class LieGroup>
 PointcloudMatch<LieGroup>::PointcloudMatch (const Landscape::Params::Ptr &landscapeParams,
-						    const typename Params::Ptr &pointcloudMatchParams):
+								    const typename Params::Ptr &pointcloudMatchParams):
 	CostFunction<LieGroup>(pointcloudMatchParams),
 	landscape(*landscapeParams)
 {
@@ -114,23 +113,22 @@ template<class LieGroup>
 typename PointcloudMatch<LieGroup>::Tangent
 PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 {
-	Pointcloud predicted;
-	{
-		//autograd::profiler::RecordProfile rp("/home/nicola/predict.trace");
-		predicted = x * oldPcl.squeeze();
-	}
-
+	Pointcloud predicted = x * oldPcl.squeeze();
 	Tangent totalGradientNew;
-	{
-		//autograd::profiler::RecordProfile rp("/home/nicola/new.trace");
-		const Tensor &landscapeGradient = landscape.gradient(predicted);
+	//autograd::profiler::RecordProfile rp("/home/nicola/new.trace");
 
-		totalGradientNew = x.differentiate(landscapeGradient, predicted, sumOut);
-	}
+	const Tensor &landscapeGradient = landscape.gradient(predicted);
+	Tensor jacobian;
+
+	totalGradientNew = x.differentiate(landscapeGradient, predicted, sumOut, jacobian);
+
+	COUTN((jacobian.t().mm(jacobian)).inverse().mv(totalGradientNew.coeffs));
+
 	return totalGradientNew;
 }
 
 template<class LieGroup>
+
 typename PointcloudMatch<LieGroup>::Vector
 PointcloudMatch<LieGroup>::value (const LieGroup &x)
 {
@@ -234,7 +232,7 @@ Tensor PointcloudMatch<LieGroup>::test (Test::Type type)
 		values = testTensorFcn(testGrid);
 	}, 1, false);
 	COUTN(values);
-/*
+	/*
 	PROFILE_N_EN(taken2,[&]{
 
 	for (int i = 0; i < testGrid.size(0); i++) {
