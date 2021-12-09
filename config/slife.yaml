@@ -10,21 +10,22 @@ slife:
   landscape:
     measure_radius: 0.7
     smooth_radius: 0.001
-    precision: 1
-  target_optimization_group: pose # options: {position, quaternion_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`
+    precision: 10
+  target_optimization_group: pose # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`
   optimizer:
-    step_sizes: [0.02, 0.015]
-    norm_weights: [1, 1]
+    step_sizes: [0.01, 0.01] # pose [0.015, 0.015]
+    norm_weights: [0, 1]
     threshold: 0.000
-    max_iterations: 100
-    initialization_type: identity # options: {identity}
+    max_iterations: 30
+    initialization_type: identity # options: {identity, external [not implemented]}
     record_history: true  # time consuming, use only for debug
+    disable: false
     cost:
-      batch_size: 10
+      batch_size: 20
   debug:
     test_grid:
       min: -1.0
       max: 1.0
-      step: 0.06
+      step: 0.1
     z_test_value: 0.
     test_type: none # options: {none, landscape_value, landscape_gradient, cost_value, cost_gradient}

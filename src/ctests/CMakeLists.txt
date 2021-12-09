@@ -10,7 +10,7 @@ add_compile_options(-DEIGEN_STACK_ALLOCATION_LIMIT=0)
 add_compile_options(-msse2)
 set(EIGEN3_INCLUDE_DIR /usr/include/eigen3)
 
-find_package(PCL 1.3 REQUIRED)
+find_package (PCL 1.3 REQUIRED)
 
 include_directories(
 	include
@@ -21,5 +21,5 @@ include_directories(
 	/opt/ros/noetic/include
 )
 
-add_executable(test_lietorch test_tensor_init.cpp)
+add_executable(test_lietorch test_quat_ops.cpp)
 target_link_libraries (test_lietorch ${TORCH_LIBRARIES} ${PCL_LIBRARIES})

@@ -8,14 +8,14 @@ from roslib import message
 
 
 synth_pcl_topic = "/camera/depth/pointcloud"
-points_count = 10
+points_count = 20
 
 class Pose:
     def __init__ (self, t, q):
         self.t = torch.tensor (t,dtype=torch.float)
         self.q = torch.tensor (q,dtype=torch.float)
 
-ground_truth = Pose([0.1,0.0,0.0],[0.0871557, 0, 0, 0.9961947])
+ground_truth = Pose([0.1,0.0,0.0],[0.0499792, 0, 0, 0.9987503]) 
 
 def quat2rot (quat):
     x = quat[0]

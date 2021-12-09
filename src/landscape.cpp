@@ -21,6 +21,12 @@ Landscape::Landscape (const Params &_params):
 	gradientLambda = [this] (const torch::Tensor &p) -> torch::Tensor  {
 		return preSmoothGradient(p);
 	};
+
+	// Init indexing grid
+	auto xyGrid = torch::meshgrid({torch::arange(0,params.batchSize),
+							 torch::arange(0,params.precision)});
+	xGrid = xyGrid[0].reshape({1,-1});
+	yGrid = xyGrid[1].reshape({1,-1});
 }
 
 
@@ -58,12 +64,19 @@ Tensor Landscape::value(const Tensor &p)
 
 Tensor Landscape::preSmoothGradient (const Tensor &p) const
 {
-	Tensor pointcloudDiff = p - pointcloud;
-	Tensor distToPointcloud = pointcloudDiff.pow(2).sum(2);
+	Tensor pointcloudDiff = p - pointcloud.unsqueeze(2);
+	Tensor distToPointcloud = pointcloudDiff.pow(2).sum(3);
 	Tensor collapsedDist, idxes;
+
 	tie (collapsedDist, idxes) = distToPointcloud.min (0);
 
-	Tensor collapsedDiff = pointcloudDiff.permute({1,0,2}).index({torch::arange(pointcloudDiff.size(1)),idxes,Ellipsis});
+	Tensor collapsedDiff = pointcloudDiff.permute({1,2,0,3})
+					   .index({xGrid,
+							 yGrid,
+							 idxes.reshape({1,-1}),
+							 Ellipsis})
+					   .reshape({params.batchSize,
+							   params.precision, -1});
 
 	return collapsedDiff / pow (params.measureRadius,2) * smoothGain;
 }
@@ -96,9 +109,9 @@ Smoother::Smoother (int dim, int samplesCount, float variance):
 Tensor MontecarloSmoother::evaluate(const Fcn &f, const Tensor &x)
 {
 	Tensor xVar = torch::normal (0.0, params.radius, {params.samplesCount, params.dim});
-	Tensor xEval = xVar + x.expand ({params.samplesCount, params.dim});
+	Tensor xEval = xVar + x.unsqueeze(1);
 
-	return f(xEval).mean (0);
+	return f(xEval).mean (1);
 }
 
 

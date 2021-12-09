@@ -16,7 +16,7 @@ class Pose:
         self.t = torch.tensor (t,dtype=torch.float)
         self.q = torch.tensor (q,dtype=torch.float)
 
-ground_truth = Pose([0.1,0.0,0.0],[0.0871557, 0, 0, 0.9961947])
+ground_truth = Pose([0.1,0.0,0.0],[0.0499792, 0, 0, 0.9987503]) #[0.0871557, 0, 0, 0.9961947])
 
 
 def handle_close (fig):
@@ -28,6 +28,7 @@ def signal_handler (sig, frame):
 class DisplayHistoryNode:
     def tensor_callback (self, tensor_msg):
         self.sizes = []
+        
         for curr_dim in tensor_msg.layout.dim:
             self.sizes.append (curr_dim.size)
             
@@ -37,10 +38,13 @@ class DisplayHistoryNode:
     def process_data (self, tensor):
         t = tensor[:,0:3]
         q = tensor[:,3:]
+        #q = tensor
         
         error_t = (t - ground_truth.t).norm (2,1)
+        #print (error_t)
         error_q = (q - ground_truth.q).norm (2,1)
-        
+        #error_q = t - ground_truth.t
+        #error_t = None
         return error_t, error_q
 
     def draw (self):
@@ -51,7 +55,7 @@ class DisplayHistoryNode:
 
         error_t, error_q = self.process_data (self.tensor)
         
-        #plt.plot (self.tensor[:,0], self.tensor[:,1])
+        #plt.scatter (self.tensor[:,0], self.tensor[:,1])
         plt.plot(error_t, label="translation")
         plt.plot(error_q, label="rotation")
         plt.xlabel ("# iterations")

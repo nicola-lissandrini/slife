@@ -73,12 +73,14 @@ public:
 		Scalar measureRadius;
 		Scalar smoothRadius;
 		int precision;
+		int batchSize; // number of simultaneous landscape points evaluation
 
 		DEF_SHARED(Params)
 	};
 
 
 private:
+	Tensor xGrid, yGrid;
 	Smoother::Fcn valueLambda, gradientLambda;
 
 	Params params;

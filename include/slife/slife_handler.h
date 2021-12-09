@@ -25,6 +25,8 @@ public:
 	enum TargetOptimizationGroup {
 		TARGET_POSITION,
 		TARGET_QUATERNION_R4,
+		TARGET_QUATERNION,
+		TARGET_POSE_R4,
 		TARGET_POSE,
 		TARGET_DUAL_QUATERNION
 	};
@@ -48,7 +50,7 @@ private:
 	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
 	typename PointcloudMatch<TargetGroup>::Params::Ptr getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams);
 
-	Landscape::Params::Ptr getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams);
+	Landscape::Params::Ptr getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams, const PointcloudMatch<TargetGroup>::Params::Ptr &costParams);
 	SlifeHandler::Params getHandlerParams(XmlRpc::XmlRpcValue &xmlParams);
 
 	void test ();

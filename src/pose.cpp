@@ -10,6 +10,11 @@ class PoseBase<Position3, QuaternionR4>;
 template
 class TwistBase<Position3, QuaternionR4>;
 
+template
+class PoseBase<Position3, Quaternion>;
+template
+class TwistBase<Position3, Quaternion>;
+
 template<class Translation, class Rotation>
 Translation PoseBase<Translation, Rotation>::translation () const {
 	const int tDim = Translation::Dim;
@@ -49,6 +54,11 @@ PoseBase<Position3, QuaternionR4> PoseBase<Position3, QuaternionR4>::compose (co
 	return PoseBase (translation() * other.translation(), rotation() * other.rotation());
 }
 
+template<>
+PoseBase<Position3, Quaternion> PoseBase<Position3, Quaternion>::compose (const PoseBase &other) const {
+	return PoseBase (translation() * (rotation() * other.translation()), rotation() * other.rotation());
+}
+
 template<class Translation, class Rotation>
 typename PoseBase<Translation,Rotation>::DataType
 PoseBase<Translation,Rotation>::dist(const PoseBase &other, const DataType &weights) const {
@@ -65,9 +75,9 @@ PoseBase<Translation, Rotation>:: PoseBase::act (const Vector &v) const {
 
 template<class Translation, class Rotation>
 typename PoseBase<Translation, Rotation>::Tangent
-PoseBase<Translation, Rotation>::differentiate (const Vector &outerGradient, const Vector &v) const {
-	return Tangent (translation().differentiate (outerGradient, v),
-				 rotation().differentiate (outerGradient, v));
+PoseBase<Translation, Rotation>::differentiate (const Vector &outerGradient, const Vector &v, const std::function<torch::Tensor(torch::Tensor)> &op) const {
+	return Tangent (translation().differentiate (outerGradient, v, op),
+				 rotation().differentiate (outerGradient, v, op));
 }
 
 template<class Translation, class Rotation>

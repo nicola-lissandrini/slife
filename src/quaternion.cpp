@@ -1,4 +1,5 @@
 #include "lietorch/quaternion.h"
+#include "../../sparcsnode/include/sparcsnode/utils.h"
 
 using namespace lietorch;
 using namespace torch;
@@ -9,6 +10,44 @@ using namespace std;
  * **/
 
 namespace lietorch::quaternion_operations {
+
+static const Tensor jacobianMultiplier = 2*torch::tensor({{{{ 1, 0, 0}, { 0,-1, 0}, { 0, 0,-1}},
+											{{ 0, 1, 0}, { 1, 0, 0}, { 0, 0, 0}},
+											{{ 0, 0, 1}, { 0, 0, 0}, { 1, 0, 0}},
+											{{ 0, 0, 0}, { 0, 0,-1}, { 0, 1, 0}}},
+										    {{{ 0, 1, 0}, { 1, 0, 0}, { 0, 0, 0}},
+											{{-1, 0, 0}, { 0, 1, 0}, { 0, 0,-1}},
+											{{ 0, 0, 0}, { 0, 0, 1}, { 0, 1, 0}},
+											{{ 0, 0, 1}, { 0, 0, 0}, {-1, 0, 0}}},
+										    {{{ 0, 0, 1}, { 0, 0, 0}, { 1, 0, 0}},
+											{{ 0, 0, 0}, { 0, 0, 1}, { 0, 1, 0}},
+											{{-1, 0, 0}, { 0,-1, 0}, { 0, 0, 1}},
+											{{ 0,-1, 0}, { 1, 0, 0}, { 0, 0, 0}}},
+										    {{{ 0, 0, 0}, { 0, 0,-1}, { 0, 1, 0}},
+											{{ 0, 0, 1}, { 0, 0, 0}, {-1, 0, 0}},
+											{{ 0,-1, 0}, { 1, 0, 0}, { 0, 0, 0}},
+											{{ 1, 0, 0}, { 0, 1, 0}, { 0, 0, 1}}}}, kFloat);
+
+static const Tensor compositionMultiplier = torch::tensor({{{ 0, 0, 0, 1}, { 0, 0, 1, 0}, { 0,-1, 0, 0}, {-1, 0, 0, 0}},
+											    {{ 0, 0,-1, 0}, { 0, 0, 0, 1}, { 1, 0, 0, 0}, { 0,-1, 0, 0}},
+											    {{ 0, 1, 0, 0}, {-1, 0, 0, 0}, { 0, 0, 0, 1}, { 0, 0,-1, 0}},
+											    {{ 1, 0, 0, 0}, { 0, 1, 0, 0}, { 0, 0, 1, 0}, { 0, 0, 0, 1}}}, kFloat);
+
+static const Tensor conjugateMultiplier = torch::tensor({{-1, 0, 0, 0}, { 0,-1, 0, 0}, { 0, 0,-1, 0}, { 0, 0, 0, 1}}, kFloat);
+
+static const Tensor skewMultiplier = torch::tensor({{{ 0, 0, 0}, { 0, 0,-1}, { 0, 1, 0}},
+										  {{ 0, 0, 1}, { 0, 0, 0}, {-1, 0, 0}},
+										  {{ 0,-1, 0}, { 1, 0, 0}, { 0, 0, 0}}}, kFloat);
+
+static const Tensor rotationMultiplier = torch::tensor({{{ 1, 0, 0, 0}, { 0,-1, 0, 0}, { 0, 0,-1, 0}, { 0, 0, 0, 1}},
+											 {{ 0, 2, 0, 0}, { 0, 0, 0, 0}, { 0, 0, 0, 0}, { 0, 0,-2, 0}},
+											 {{ 0, 0, 2, 0}, { 0, 0, 0, 0}, { 0, 0, 0, 0}, { 0, 2, 0, 0}},
+											 {{ 0, 2, 0, 0}, { 0, 0, 0, 0}, { 0, 0, 0, 0}, { 0, 0, 2, 0}},
+											 {{-1, 0, 0, 0}, { 0, 1, 0, 0}, { 0, 0,-1, 0}, { 0, 0, 0, 1}},
+											 {{ 0, 0, 0, 0}, { 0, 0, 2, 0}, { 0, 0, 0, 0}, {-2, 0, 0, 0}},
+											 {{ 0, 0, 2, 0}, { 0, 0, 0, 0}, { 0, 0, 0, 0}, { 0,-2, 0, 0}},
+											 {{ 0, 0, 0, 0}, { 0, 0, 2, 0}, { 0, 0, 0, 0}, { 2, 0, 0, 0}},
+											 {{-1, 0, 0, 0}, { 0,-1, 0, 0}, { 0, 0, 1, 0}, { 0, 0, 0, 1}}}, kFloat);
 
 // Single element or vector of selected component from the tensor
 Tensor x (const Tensor &q) {
@@ -39,55 +78,140 @@ Tensor action (const Tensor &q, const Tensor &v)
 		v.unsqueeze_(0);
 
 	return (v * (w(q).pow(2) - imagPart.pow(2).sum()) +
-		  2 * v.matmul(imagPart).unsqueeze(1) * imagPart.unsqueeze(0) +
-		  2 * w(q) * imagPart.expand_as(v).cross (v, 1)).squeeze();
+		   2 * v.matmul(imagPart).unsqueeze(1) * imagPart.unsqueeze(0) +
+		   2 * w(q) * imagPart.expand_as(v).cross (v, 1)).squeeze();
 }
 
 Tensor composition (const Tensor &q1, const Tensor &q2) {
-	return torch::cat({w(q1)*x(q2) + x(q1)*w(q2) + y(q1)*z(q2) - z(q1)*y(q2),
-				    w(q1)*y(q2) - x(q1)*z(q2) + y(q1)*w(q2) + z(q1)*x(q2),
-				    w(q1)*z(q2) + x(q1)*y(q2) - y(q1)*x(q2) + z(q1)*w(q2),
-				    w(q1)*w(q2) - x(q1)*x(q2) - y(q1)*y(q2) - z(q1)*z(q2)});
+	return (compositionMultiplier * q2.unsqueeze(1).unsqueeze(1)).sum(0).matmul(q1);
 }
 
 Tensor conjugate (const Tensor &q) {
-	return torch::cat({-x(q),
-				    -y(q),
-				    -z(q),
-					w(q)});
+	return conjugateMultiplier.matmul(q.unsqueeze(1)).squeeze();
 }
 
 Tensor actionJacobian (const Tensor &q, const Tensor &v) {
-	Tensor j0 = torch::cat ({ 2*v[0]*x(q) + 2*v[1]*y(q) + 2*v[2]*z(q),
-						 2*v[0]*y(q) - 2*v[1]*x(q) - 2*v[2]*w(q),
-						 2*v[0]*z(q) + 2*v[1]*w(q) - 2*v[2]*x(q)});
-	Tensor j1 = torch::cat ({-2*v[0]*y(q) + 2*v[1]*x(q) + 2*v[2]*w(q),
-						 2*v[0]*x(q) + 2*v[1]*y(q) + 2*v[2]*z(q),
-						-2*v[0]*w(q) + 2*v[1]*z(q) - 2*v[2]*y(q)});
-	Tensor j2 = torch::cat ({-2*v[0]*z(q) - 2*v[1]*w(q) + 2*v[2]*x(q),
-						 2*v[0]*w(q) - 2*v[1]*z(q) + 2*v[2]*y(q),
-						 2*v[0]*x(q) + 2*v[1]*y(q) + 2*v[2]*z(q)});
-	Tensor j3 = torch::cat ({ 2*v[0]*w(q) - 2*v[1]*z(q) + 2*v[2]*y(q),
-						 2*v[0]*z(q) + 2*v[1]*w(q) - 2*v[2]*x(q),
-						-2*v[0]*y(q) + 2*v[1]*x(q) + 2*v[2]*w(q)});
-	return torch::stack({j0,j1,j2,j3}).t();
+	return -q.unsqueeze(0).unsqueeze(1).matmul(rotationMultiplier)
+			.matmul(q.unsqueeze(1)
+				    .unsqueeze(0))
+			.squeeze().reshape({3,3})
+			.unsqueeze(0)
+			.matmul((skewMultiplier.unsqueeze(3) *
+				    v.t().unsqueeze(1).unsqueeze(1)
+				    ).sum(0)
+					.permute({2,0,1}));
+}
+
+Tensor actionJacobianR4 (const Tensor &q, const Tensor &v) {
+	return (jacobianMultiplier * q.unsqueeze(1).unsqueeze(1))
+			.sum(1).matmul(v.t())
+			.permute({2,0,1})
+			.transpose(1,2);
 }
 
 Tensor normalize (const Tensor &q) {
 	return q / q.norm(2,0); // Todo: check dim
 }
 
+Tensor distanceRiemann (const Tensor &q1, const Tensor &q2) {
+	return quaternion_operations::log(composition (quaternion_operations::inverse(q1), q2)).norm ();
+}
 
-// Tensor log (const Tensor &q) { ... todo }
+Tensor inverse(const Tensor &q) {
+	return quaternion_operations::conjugate(q);
+}
+
+Tensor log (const Tensor &q) {
+	Tensor imagPart = quaternion_operations::imag(q);
+	Tensor imagPartNorm = imagPart.norm();
+	return 2 * imagPart / imagPartNorm * torch::acos(w(q));
+}
+
+Tensor exp (const Tensor &t) {
+	Tensor theta = t.norm(2,0);
+
+	if (theta.item().toFloat() < 1e-10)
+		return torch::cat ({0 * t, theta.cos().unsqueeze(0) });
+	else
+		return torch::cat ({t / theta * (theta / 2).sin(), (theta / 2).cos().unsqueeze(0)});
+}
 
 
 } // namespace quaternion_operations
 
+
+/****
+ * Quaternion seen as proper Quaternion Lie Group
+ * **/
+Quaternion::Quaternion (float x, float y, float z, float w):
+	Quaternion(torch::tensor({x, y, z, w}, kFloat))
+{}
+
+Quaternion Quaternion::inverse () const {
+	return quaternion_operations::inverse(coeffs);
+}
+
+AngularVelocity Quaternion::log() const {
+	return quaternion_operations::log(coeffs);
+}
+
+Quaternion Quaternion::compose(const Quaternion &other) const {
+	return quaternion_operations::composition(coeffs, other.coeffs);
+}
+
+Quaternion::Vector Quaternion::act(const Vector &v) const {
+	return quaternion_operations::action(coeffs, v);
+}
+
+Quaternion::DataType Quaternion::dist (const Quaternion &other, const DataType &weights) const {
+	return quaternion_operations::distanceRiemann (coeffs, other.coeffs);
+}
+
+AngularVelocity Quaternion::differentiate(const Vector &outerGradient, const Vector &v, const OpFcn &op) const
+{
+	Tensor jacobian = quaternion_operations::actionJacobian (coeffs, v);
+	Tensor gradientTensor = outerGradient.unsqueeze(1).matmul (jacobian).squeeze();
+
+	return AngularVelocity (op (gradientTensor));
+}
+
+Quaternion Quaternion::conj() const {
+	return quaternion_operations::conjugate(coeffs);
+}
+
+torch::Tensor Quaternion::x() const {
+	return quaternion_operations::x (coeffs);
+}
+
+torch::Tensor Quaternion::y() const {
+	return quaternion_operations::y (coeffs);
+}
+
+torch::Tensor Quaternion::z() const {
+	return quaternion_operations::z (coeffs);
+}
+
+torch::Tensor Quaternion::w() const {
+	return quaternion_operations::w (coeffs);
+}
+
+Quaternion AngularVelocity::exp() const {
+	return quaternion_operations::exp(coeffs);
+}
+
+AngularVelocity::DataType AngularVelocity::norm() const {
+	return coeffs.norm (2, 0);
+}
+
+AngularVelocity AngularVelocity::scale(const DataType &other) const {
+	assert ((other.dim() == 1 && other.sizes()[0] == 1) || other.dim() == 0 && "QuaternionR4Velocity can only scale by a scalar");
+
+	return coeffs * other;
+}
+
 /****
  * Quaternion seen as R4 Lie group
  * **/
-
-
 Tensor QuaternionR4::imag () const {
 	return coeffs.slice(0,0,3);
 }
@@ -141,10 +265,12 @@ QuaternionR4::DataType QuaternionR4::dist(const QuaternionR4 &other, const DataT
 }
 
 
-QuaternionR4::Tangent QuaternionR4::differentiate (const Vector &outerGradient, const Vector &v) const
+QuaternionR4Velocity QuaternionR4::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op) const
 {
-	Tensor jacobian = quaternion_operations::actionJacobian (coeffs, v);
-	return Tangent (outerGradient.unsqueeze (0).mm (jacobian).squeeze ());
+	Tensor jacobian = quaternion_operations::actionJacobianR4 (coeffs, v);
+	Tensor gradientTensor = outerGradient.unsqueeze (1).matmul (jacobian).squeeze ();
+
+	return QuaternionR4Velocity(op (gradientTensor));
 }
 
 void QuaternionR4::normalize_() {
