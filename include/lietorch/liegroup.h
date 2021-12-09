@@ -1,6 +1,10 @@
 #ifndef LIEGROUP_H
 #define LIEGROUP_H
 
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+#include <cassert>
 #include <cxxabi.h>
 
 #include <torch/torch.h>
@@ -27,12 +31,15 @@ struct traits;
 	friend Base;
 
 #define LIETORCH_INHERIT_GROUP_TRAITS         \
-	using Jacobian = typename Base::Jacobian; \
+	using Jacobian = typename Base::Jacobian;\
 	using DataType = typename Base::DataType;\
 	using Vector = typename Base::Vector;    \
 	using Tangent = typename Base::Tangent;  \
 	using Base::Dim;
 
+
+using OpFcn = std::function<torch::Tensor(const torch::Tensor &)>;
+static const OpFcn OpIdentity = [](const torch::Tensor &t) { return t; };
 
 template<class Derived>
 class LieGroup
@@ -64,7 +71,7 @@ public:
 	Derived compose (const Derived &other) const;
 	DataType dist (const Derived &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
-	Tangent differentiate (const Vector &outerGradient, const Vector &v) const;
+	Tangent differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op = OpIdentity) const;
 
 	// this * t.exp ()
 	Derived plus (const Tangent &t) const;
@@ -107,7 +114,7 @@ template<class Derived>
 LieGroup<Derived>::LieGroup(const LieGroup::DataType &_coeffs):
 	coeffs(_coeffs)
 {
-	assert (coeffs.sizes().size() == 1 && coeffs.size(0) == Dim && "Incompatible initialization tensor size");
+	assert (coeffs.dim() == 1 && coeffs.size(0) == Dim && "Incompatible initialization QUAAAA tensor size");
 }
 
 template<class Derived>
@@ -162,8 +169,8 @@ LieGroup<Derived>::act(const Vector &v) const {
 
 template<class Derived>
 typename LieGroup<Derived>::Tangent
-LieGroup<Derived>::differentiate (const Vector &outerGradient, const Vector &v) const {
-	return derived().differentiate (outerGradient, v);
+LieGroup<Derived>::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op) const {
+	return op (derived().differentiate (outerGradient, v));
 }
 
 /*
@@ -183,6 +190,7 @@ template<typename Derived>
 Derived &LieGroup<Derived>::setIdentity()
 {
 	const static Tangent zero = Tangent::Zero ();
+	COUT(TYPE(zero));
 	derived() = zero.exp ();
 	return derived ();
 }

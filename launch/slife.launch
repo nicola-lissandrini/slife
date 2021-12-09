@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 
 <launch>
+	<arg name="test_only" default="false" />
 	<!-- Slife core -->
 	<rosparam command="load" file="$(find slife)/config/slife.yaml" />
 	<node type="slife" name="slife" pkg="slife" output="screen" required="true"  respawn="false" />

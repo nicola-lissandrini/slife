@@ -53,8 +53,8 @@ class DisplayNode:
         else:
             print (self.values[:,0])
             sqrtsize = int (math.sqrt (self.sizes[0]))
-            im = plt.pcolormesh (y, x, self.values[:,0].reshape (sqrtsize, sqrtsize), edgecolors="none", antialiased=True, cmap="RdBu")
-            self.fig.colorbar (im)
+            #im = plt.pcolormesh (y, x, self.values[:,0].reshape (sqrtsize, sqrtsize), edgecolors="none", antialiased=True, cmap="RdBu")
+            #self.fig.colorbar (im)
             plt.quiver (y,x,self.values[:,0], self.values[:,1], minshaft=0.1)
         
         plt.grid ()

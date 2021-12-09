@@ -14,7 +14,7 @@ void SlifeHandler::updatePointcloud (const Tensor &pointcloud)
 {
 	optimizer->costFunction()->updatePointcloud(pointcloud);
 
-	if (optimizer->costFunction()->isReady())
+	if (optimizer->isReady())
 	{
 		TargetGroup estimate = optimizer->optimize();
 
@@ -60,7 +60,7 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 {
 	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr optimizerParams = getOptimizerParams (xmlParams["optimizer"]);
 	typename PointcloudMatch<TargetGroup>::Params::Ptr costFunctionParams = getCostFunctionParams (xmlParams["optimizer"]["cost"]);
-	Landscape::Params::Ptr landscapeParams = getLandscapeParams(xmlParams["landscape"]);
+	Landscape::Params::Ptr landscapeParams = getLandscapeParams(xmlParams["landscape"], costFunctionParams);
 
 	optimizer = make_shared<PointcloudMatchOptimizer<TargetGroup>> (optimizerParams,
 													    make_shared<PointcloudMatch<TargetGroup>> (landscapeParams,
@@ -76,14 +76,20 @@ typename SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValu
 	Params params;
 
 	params.synthPclSize = paramInt (xmlParams, "synth_pcl_size");
-	params.targetOptimizationGroup = paramEnum<TargetOptimizationGroup> (xmlParams, "target_optimization_group",{"position","quaternion_r4","pose","dual_quaternion"});
+	params.targetOptimizationGroup = paramEnum<TargetOptimizationGroup> (xmlParams, "target_optimization_group",{"position","quaternion_r4","quaternion","pose_r4","pose","dual_quaternion"});
 
 	switch (params.targetOptimizationGroup) {
 	case TARGET_POSITION:
 		assert (typeid(TargetGroup) == typeid(Position) && "Need to recompile the project with using TargetGroup = lietorch::Position");
 		break;
 	case TARGET_QUATERNION_R4:
-		assert (typeid(TargetGroup) == typeid(QuaternionR4) && "Need to recompile the project with using TargetGroup = lietorch::UnitQuaternionR4");
+		assert (typeid(TargetGroup) == typeid(QuaternionR4) && "Need to recompile the project with using TargetGroup = lietorch::QuaternionR4");
+		break;
+	case TARGET_QUATERNION:
+		assert (typeid(TargetGroup) == typeid(Quaternion) && "Need to recompile the project with using TargetGroup = lietorch::Quaternion");
+		break;
+	case TARGET_POSE_R4:
+		assert (typeid(TargetGroup) == typeid(Pose3R4) && "Need to recompile the project with using TargetGroup = lietorch::Pose3R4");
 		break;
 	case TARGET_POSE:
 		assert (typeid(TargetGroup) == typeid(Pose) && "Need to recompile the project with using TargetGroup = lietorch::Pose");
@@ -116,19 +122,21 @@ SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
 	optimizerParams->normWeights = paramTensor<float> (xmlParams, "norm_weights");
 	optimizerParams->threshold = paramTensor<float> (xmlParams, "threshold");
 	optimizerParams->maxIterations = paramTensor<float> (xmlParams, "max_iterations");
+	optimizerParams->disable = paramBool (xmlParams, "disable");
 	optimizerParams->initializationType = paramEnum<PointcloudMatchOptimizer<TargetGroup>::InitializationType> (xmlParams, "initialization_type",{"identity"});
 	optimizerParams->recordHistory = paramBool (xmlParams, "record_history");
 
 	return optimizerParams;
 }
 
-Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams)
+Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams, const PointcloudMatch<TargetGroup>::Params::Ptr &costParams)
 {
 	Landscape::Params::Ptr landscapeParams = make_shared<Landscape::Params> ();
 
 	landscapeParams->measureRadius = paramDouble (xmlParams, "measure_radius");
 	landscapeParams->smoothRadius = paramDouble (xmlParams, "smooth_radius");
 	landscapeParams->precision = paramInt (xmlParams,"precision");
+	landscapeParams->batchSize = costParams->batchSize;
 
 	return landscapeParams;
 }

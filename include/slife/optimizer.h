@@ -72,6 +72,8 @@ protected:
 	ReadyFlagsStr flags;
 	Pointcloud oldPcl;
 
+	lietorch::OpFcn sumOut;
+
 	Params &params() const {
 		return *std::dynamic_pointer_cast<Params> (paramsData);
 	}
@@ -113,6 +115,7 @@ public:
 		InitializationType initializationType;
 		torch::Tensor maxIterations;
 		bool recordHistory;
+		bool disable;
 
 		DEF_SHARED(Params)
 	};
@@ -132,6 +135,7 @@ public:
 	{}
 
 	LieGroup optimize ();
+	bool isReady () const;
 	typename TargetCostFunction::Ptr costFunction () {
 		return costFunctionPtr;
 	}
@@ -147,5 +151,5 @@ template<class LieGroup>
 using PointcloudMatchOptimizer = Optimizer<LieGroup, PointcloudMatch<LieGroup>>;
 
 using PositionOptimizer = PointcloudMatchOptimizer<lietorch::Position>;
-using PoseOptimizer = PointcloudMatchOptimizer<lietorch::Pose>;
+using PoseOptimizer = PointcloudMatchOptimizer<lietorch::Pose3R4>;
 #endif // LOCALIZE_H

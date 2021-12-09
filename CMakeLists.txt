@@ -3,7 +3,7 @@ project(slife)
 
 add_compile_options(-std=c++14)
 add_compile_options(-DEIGEN_STACK_ALLOCATION_LIMIT=0)
-#add_compile_options(-fno-inline-small-functions)
+add_compile_options(-fno-inline-small-functions)
 
 
 find_package(catkin REQUIRED COMPONENTS

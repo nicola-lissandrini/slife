@@ -3,6 +3,7 @@
 
 #include "liegroup.h"
 
+
 namespace lietorch {
 
 template<int _N>
@@ -71,7 +72,7 @@ public:
 	Rn compose (const Rn &other) const;
 	DataType dist (const Rn &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
-	Tangent differentiate (const DataType &outerGradient, const Vector &v) const;
+	Tangent differentiate (const DataType &outerGradient, const Vector &v, const OpFcn &op= OpIdentity) const;
 
 };
 
@@ -105,9 +106,9 @@ typename Rn<_N>::Vector Rn<_N>::act (const Vector &v) const {
 }
 
 template<int _N>
-typename Rn<_N>::Tangent Rn<_N>::differentiate (const DataType &outerGradient, const Vector &v) const {
+typename Rn<_N>::Tangent Rn<_N>::differentiate (const DataType &outerGradient, const Vector &v, const OpFcn &op) const {
 	// Jacobian is the identity
-	return outerGradient;
+	return op (outerGradient);
 }
 
 template<int _N>
@@ -130,7 +131,7 @@ typename VelocityRn<_N>::DataType VelocityRn<_N>::norm() const {
 template<int _N>
 VelocityRn<_N> VelocityRn<_N>::scale(const DataType &other) const
 {
-	assert ((other.sizes().size() == 1 && other.sizes()[0] == 1) || other.sizes().size() == 0 && "VelocityRn can only scale by a scalar");
+	assert (((other.dim() == 1 && other.size(0) == 1) || other.dim() == 0) && "VelocityRn can only scale by a scalar");
 
 	return VelocityRn<_N> (coeffs * other);
 }

@@ -19,13 +19,23 @@ class PointcloudMatch<QuaternionR4>;
 template
 class Optimizer<QuaternionR4, PointcloudMatch<QuaternionR4>>;
 
-// Pose
+// Quaternion
+template
+class PointcloudMatch<Quaternion>;
+template
+class Optimizer<Quaternion, PointcloudMatch<Quaternion>>;
+
+// Pose3R4
+template
+class PointcloudMatch<Pose3R4>;
+template
+class Optimizer<Pose3R4, PointcloudMatch<Pose3R4>>;
+
+
 template
 class PointcloudMatch<Pose>;
 template
 class Optimizer<Pose, PointcloudMatch<Pose>>;
-
-// Todo: instantiate Quaternion, DualQuaternion
 
 template<class LieGroup, class TargetCostFunction>
 LieGroup Optimizer<LieGroup, TargetCostFunction>::getInitialValue()
@@ -44,6 +54,10 @@ template<class LieGroup, class TargetCostFunction>
 vector<LieGroup> Optimizer<LieGroup, TargetCostFunction>::getHistory() const {
 	return history;
 }
+template<class LieGroup, class TargetCostFunction>
+bool Optimizer<LieGroup,TargetCostFunction>::isReady() const {
+	return costFunctionPtr->isReady () && !params.disable;
+}
 
 template<class LieGroup, class TargetCostFunction>
 LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
@@ -57,9 +71,14 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 	while (!terminationCondition) {
 		if (params.recordHistory)
 			history.push_back(state);
-		//PROFILE(taken, [&]{
-		nextState = state - costFunction()->gradient (state) * params.stepSizes;
-		//});
+
+		PROFILE(taken, [&]{
+		auto gradient = costFunction()->gradient (state);
+		COUTN(gradient.coeffs.norm());
+		COUTN((params.stepSizes / gradient.coeffs.norm().sqrt()))
+
+		nextState = state - gradient * (params.stepSizes / gradient.coeffs.norm().sqrt());
+
 
 		terminationCondition = (nextState.dist(state, params.normWeights) < params.threshold).item().toBool() ||
 						   (iterations >= params.maxIterations).item().toBool ();
@@ -68,9 +87,10 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 
 		iterations++;
 
+		});
 		totalTaken += taken;
 	}
-
+	COUTN(state);
 	cout << "total taken: " << totalTaken << "ms avg. " << (totalTaken / double (iterations)) << "ms"<< endl;
 	cout << "Possible target Hz " << 1000/totalTaken << endl;
 
@@ -85,7 +105,10 @@ PointcloudMatch<LieGroup>::PointcloudMatch (const Landscape::Params::Ptr &landsc
 {
 	flags.addFlag("old_pointcloud");
 	flags.addFlag("new_pointcloud");
+
+	sumOut = [] (const Tensor &t) { return t.sum(0); };
 }
+
 
 template<class LieGroup>
 typename PointcloudMatch<LieGroup>::Tangent
@@ -93,21 +116,18 @@ PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 {
 	Pointcloud predicted;
 	{
-		autograd::profiler::RecordProfile rp("/home/nicola/predict.trace");
+		//autograd::profiler::RecordProfile rp("/home/nicola/predict.trace");
 		predicted = x * oldPcl.squeeze();
 	}
-	Tangent totalGradient;
+
+	Tangent totalGradientNew;
 	{
-		autograd::profiler::RecordProfile rp("/home/nicola/one.trace");
-	for (int i = 0; i < predicted.size(0); i++) {
-		//const Tensor &curr = ;
-		//const Tensor &currGrad = ;
+		//autograd::profiler::RecordProfile rp("/home/nicola/new.trace");
+		const Tensor &landscapeGradient = landscape.gradient(predicted);
 
-		totalGradient += x.differentiate(landscape.gradient(predicted[i]), predicted[i]);
+		totalGradientNew = x.differentiate(landscapeGradient, predicted, sumOut);
 	}
-	}
-
-	return totalGradient;
+	return totalGradientNew;
 }
 
 template<class LieGroup>
@@ -156,13 +176,13 @@ TestFcn PointcloudMatch<Position>::getCostLambda (Test::Type type)
 }
 
 template<>
-TestFcn PointcloudMatch<Pose>::getCostLambda (Test::Type type)
+TestFcn PointcloudMatch<Pose3R4>::getCostLambda (Test::Type type)
 {
 	switch (type) {
 	case Test::TEST_COST_VALUES:
-		return [this] (const Tensor &p) -> Tensor { return this->value(Pose(p,QuaternionR4())); };
+		return [this] (const Tensor &p) -> Tensor { return this->value(Pose3R4(p,QuaternionR4())); };
 	case Test::TEST_COST_GRADIENT:
-		return [this] (const Tensor &p) -> Tensor { return this->gradient(Pose(p,QuaternionR4())).coeffs.slice(0, 0, 3); };
+		return [this] (const Tensor &p) -> Tensor { return this->gradient(Pose3R4(p,QuaternionR4())).coeffs.slice(0, 0, 3); };
 	default:
 		return TestFcn ();
 	}
@@ -207,24 +227,33 @@ Tensor PointcloudMatch<LieGroup>::test (Test::Type type)
 
 	Tensor testGrid = tester->getTestGrid();
 	const int gridSize = tester->getTestGridSize();
-	Tensor values = torch::empty ({testGrid.size(0), testTensorDim}, kFloat);
+	Tensor values;// = torch::empty ({testGrid.size(0), testTensorDim}, kFloat);
 
-	float taken;
-	PROFILE_N(taken,[&]{
+	float taken1,taken2;
+	PROFILE_N_EN(taken1,[&]{
+		values = testTensorFcn(testGrid);
+	}, 1, false);
+	COUTN(values);
+/*
+	PROFILE_N_EN(taken2,[&]{
 
 	for (int i = 0; i < testGrid.size(0); i++) {
 		Tensor currentPoint = testGrid[i];
-		Tensor value = testTensorFcn(currentPoint);
+		Tensor value = testTensorFcn(currentPoint.unsqueeze(0));
 
 		values[i] = value.squeeze();
 	}
 
-	}, testGrid.size(0));
+	}, testGrid.size(0), false);
 
+	cout << "\nEvaluate landscape in " << testGrid.size(0) << " points" << endl;
+	cout << "Single tensor operations: " << taken1 << "ms" << endl;
+	cout << "For loop evalution: " << taken2 << "ms" << endl;
+*/
 
 	if (type == Test::TEST_LANDSCAPE_GRADIENT ||
 			type == Test::TEST_COST_GRADIENT) {
-		Tensor ret = values.reshape({gridSize * gridSize, testTensorDim});
+		Tensor ret = values;//.reshape({gridSize * gridSize, testTensorDim});
 
 		return ret;
 	}

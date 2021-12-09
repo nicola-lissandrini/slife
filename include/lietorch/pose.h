@@ -80,28 +80,26 @@ public:
 	PoseBase compose (const PoseBase &other) const;
 	DataType dist (const PoseBase &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
-	Tangent differentiate (const Vector &outerGradient, const Vector &v) const;
+	Tangent differentiate (const Vector &outerGradient, const Vector &v, const std::function<torch::Tensor(torch::Tensor)> &op = std::function<torch::Tensor(torch::Tensor)> ()) const;
 
 	Translation translation () const;
 	Rotation rotation () const;
 };
 
 // Actual Definitions
-using Position2 = Rn<2>;
+//using Position2 = Rn<2>;
 using Position3 = Rn<3>;
-using Rotation = QuaternionR4;
 
-using Velocity2 = VelocityRn<2>;
+//using Velocity2 = VelocityRn<2>;
 using Velocity3 = VelocityRn<3>;
 
 using Pose3R4 = PoseBase<Position3, QuaternionR4>;
-// using Pose3H = PoseBase<Position3, QuaternionH>; TODO
+using Pose = PoseBase<Position3, Quaternion>;
 using Twist3R4 = TwistBase<Velocity3, QuaternionR4Velocity>;
 
 using Position = Position3;
 using Velocity = Velocity3;
-using Pose = Pose3R4;
-using Twist = Twist3R4;
+
 
 
 
