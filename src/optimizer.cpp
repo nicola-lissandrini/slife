@@ -122,7 +122,7 @@ PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 
 	totalGradientNew = x.differentiate(landscapeGradient, predicted, sumOut, jacobian);
 
-	COUTN((jacobian.t().mm(jacobian)).inverse().mv(totalGradientNew.coeffs));
+	// COUTN((jacobian.t().mm(jacobian)).inverse().mv(totalGradientNew.coeffs));
 
 	return totalGradientNew;
 }

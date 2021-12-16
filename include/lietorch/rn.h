@@ -79,6 +79,14 @@ public:
 
 };
 
+// Actual Definitions
+//using Position2 = Rn<2>;
+using Position3 = Rn<3>;
+
+//using Velocity2 = VelocityRn<2>;
+using Velocity3 = VelocityRn<3>;
+
+
 // Implementation
 template<int _N>
 Rn<_N> Rn<_N>::inverse () const {

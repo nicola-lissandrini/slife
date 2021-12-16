@@ -59,7 +59,8 @@ struct traits<AngularVelocity>
 };
 
 }
-namespace quaternion_operations
+
+namespace quaternion_ops
 {
 using Tensor = torch::Tensor;
 

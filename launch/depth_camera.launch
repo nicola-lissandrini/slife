@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+
+<launch>
+	<include file="$(find realsense2_camera)/launch/rs_camera.launch">
+		<arg name="output" value="log" />
+	</include>
+	<node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager" />
+
+	<node pkg="nodelet" type="nodelet" name="point_cloud_xyz" args="load depth_image_proc/point_cloud_xyz nodelet_manager">
+		<remap from="camera_info" to="/camera/depth/camera_info" />
+	    <remap from="image_rect" to="/camera/depth/image_rect_raw"/>
+	    <remap from="points" to="/camera/depth/pointcloud" />
+	</node>
+</launch>
