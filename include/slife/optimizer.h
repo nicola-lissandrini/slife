@@ -74,10 +74,6 @@ protected:
 
 	lietorch::OpFcn sumOut;
 
-	Params &params() const {
-		return *std::dynamic_pointer_cast<Params> (paramsData);
-	}
-
 public:
 	PointcloudMatch (const Landscape::Params::Ptr &landscapeParams,
 				  const typename Params::Ptr &pointcloudMatchParams);
@@ -90,6 +86,7 @@ public:
 
 	// Test
 	Tensor test (Test::Type type);
+	Landscape::Params::Ptr getLandscapeParams () const;
 
 	// Cost testing only implemented for Position or Pose
 	TestFcn getCostLambda (Test::Type);

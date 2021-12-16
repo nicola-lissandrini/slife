@@ -72,8 +72,10 @@ public:
 	struct Params {
 		Scalar measureRadius;
 		Scalar smoothRadius;
+		Scalar maximumDistance;
 		int precision;
 		int batchSize; // number of simultaneous landscape points evaluation
+		int decimation;
 
 		DEF_SHARED(Params)
 	};

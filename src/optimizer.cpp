@@ -283,5 +283,3 @@ Tensor PointcloudMatch<LieGroup>::test (Test::Type type)
 
 
 
-
-

@@ -128,7 +128,7 @@
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/test_pinv.cpp">
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/test_max_nan.cpp">
 			<Option target="test_lietorch"/>
 		</Unit>
 		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/CMakeLists.txt">

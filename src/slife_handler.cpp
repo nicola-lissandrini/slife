@@ -137,6 +137,8 @@ Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xm
 	landscapeParams->smoothRadius = paramDouble (xmlParams, "smooth_radius");
 	landscapeParams->precision = paramInt (xmlParams,"precision");
 	landscapeParams->batchSize = costParams->batchSize;
+	landscapeParams->maximumDistance = paramDouble (xmlParams, "maximum_distance");
+	landscapeParams->decimation = paramInt (xmlParams,"decimation");
 
 	return landscapeParams;
 }

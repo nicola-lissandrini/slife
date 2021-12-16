@@ -11,6 +11,8 @@ slife:
     measure_radius: 0.7
     smooth_radius: 0.001
     precision: 10
+    decimation: 10
+    maximum_distance: 2
   target_optimization_group: position # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`
   optimizer:
     step_sizes: 0.01 # [0.01, 0.01] # pose [0.015, 0.015]
@@ -19,7 +21,7 @@ slife:
     max_iterations: 0
     initialization_type: identity # options: {identity, external [not implemented]}
     record_history: true  # time consuming, use only for debug
-    disable: false
+    disable: true
     cost:
       batch_size: 20
   debug:

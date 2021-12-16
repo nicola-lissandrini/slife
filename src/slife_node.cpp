@@ -62,10 +62,10 @@ int SlifeNode::actions ()  {
 void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor)
 {
 	MultiArray32Manager array(vector<int> (tensor.sizes().begin(), tensor.sizes().end()));
-
+	
 	memcpy (array.data ().data(), tensor.data_ptr(), tensor.element_size() * tensor.numel ());
 	auto tensorMsg = array.getMsg();
-
+	
 	switch (outputType) {
 	case SlifeHandler::OUTPUT_ESTIMATE:
 		publish ("estimate", tensorMsg);
@@ -83,23 +83,20 @@ void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const 
 void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 {
 	const int pclSize = pointcloud.height * pointcloud.width;
-
-	torch::Tensor pointcloudTensor;
 	double taken;
+	torch::Tensor pointcloudTensor;
 	ROS_WARN ("Full Tensor loading");
 	PROFILE (taken, [&]{
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // put this back for real pcl -> {pclSize, 4},
-									  torch::TensorOptions().dtype(torch::kFloat32));
+		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 4}, // put this back for synth pcl -> {pclSize, 3},
+									  torch::TensorOptions().dtype(torch::kFloat32))
+					    .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
+
 		// REMOVING TEMPORARLY FOR SYNTHETIC PCL TESTS
 		// .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
 	});
+	COUT (pointcloudTensor.size(0));
 
-	ROS_WARN ("Finding only finite points");
-	PROFILE (taken,[&]{
-		torch::Tensor validIdxes = (torch::isfinite(pointcloudTensor).sum(1)).nonzero();
-		pointcloudTensor = pointcloudTensor.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
-	});
-
+	
 
 	slifeHandler.updatePointcloud(pointcloudTensor);
 }
@@ -121,12 +118,12 @@ void Test::initTestGrid()
 	Tensor xyRange = torch::arange (params.testGridRanges.min, params.testGridRanges.max, params.testGridRanges.step, torch::dtype (kFloat));
 	Tensor xx, yy;
 	vector<Tensor> xy;
-
+	
 	xy = meshgrid ({xyRange, xyRange});
-
+	
 	xx = xy[0].reshape (-1);
 	yy = xy[1].reshape (-1);
-
+	
 	testGrid.points = torch::stack ({xx, yy,  params.zTestValue * torch::ones_like(xx)}, 1);
 	testGrid.xySize = xyRange.size (0);
 }
@@ -136,16 +133,16 @@ void Test::initTestGrid()
 void Test::publishRangeTensor(Test::Type type, const Tensor &tensor)
 {
 	MultiArray32Manager array(vector<int> (tensor.sizes().begin(), tensor.sizes().end()), TEST_HEADER_SIZE);
-
+	
 	array.data()[0] = params.testGridRanges.min;
 	array.data()[1] = params.testGridRanges.max;
 	array.data()[2] = params.testGridRanges.step;
 	array.data()[3] = (float) type;
-
+	
 	memcpy (array.data().data() + TEST_HEADER_SIZE,tensor.data_ptr(), tensor.element_size()*tensor.numel());
-
+	
 	auto valuesMsg = array.getMsg();
-
+	
 	nodePtr->publish ("test_range", valuesMsg);
 }
 
@@ -167,8 +164,8 @@ Test::Test (XmlRpc::XmlRpcValue &xmlParams,
 int main (int argc, char *argv[])
 {
 	init (argc, argv, NODE_NAME);
-
+	
 	SlifeNode sn;
-
+	
 	return sn.spin ();
 }
