@@ -59,7 +59,8 @@ struct traits<AngularVelocity>
 };
 
 }
-namespace quaternion_operations
+
+namespace quaternion_ops
 {
 using Tensor = torch::Tensor;
 
@@ -118,7 +119,10 @@ public:
 	Quaternion compose (const Quaternion &other) const;
 	DataType dist (const Quaternion &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
-	AngularVelocity differentiate(const Vector &outerGradient, const Vector &v, const OpFcn &op) const;
+	AngularVelocity differentiate(const Vector &outerGradient,
+							const Vector &v,
+							const OpFcn &op = OpIdentity,
+							const boost::optional<torch::Tensor &> &jacobian = boost::none) const;
 
 	torch::Tensor x () const;
 	torch::Tensor y () const;
@@ -173,7 +177,10 @@ public:
 	QuaternionR4 compose (const QuaternionR4 &o) const;
 	DataType dist (const QuaternionR4 &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
-	Tangent differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op = OpIdentity) const;
+	Tangent differentiate (const Vector &outerGradient,
+					   const Vector &v,
+					   const OpFcn &op = OpIdentity,
+					   const boost::optional<torch::Tensor &> &jacobian = boost::none) const;
 
 
 	// Quaternion specific functions

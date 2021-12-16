@@ -6,6 +6,7 @@
 #endif
 #include <cassert>
 #include <cxxabi.h>
+#include <boost/optional.hpp>
 
 #include <torch/torch.h>
 #include <ATen/Tensor.h>
@@ -71,7 +72,10 @@ public:
 	Derived compose (const Derived &other) const;
 	DataType dist (const Derived &other, const DataType &weights) const;
 	Vector act (const Vector &v) const;
-	Tangent differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op = OpIdentity) const;
+	Tangent differentiate (const Vector &outerGradient,
+					   const Vector &v,
+					   const OpFcn &op = OpIdentity,
+					   const boost::optional<torch::Tensor &> &jacobian = boost::none) const;
 
 	// this * t.exp ()
 	Derived plus (const Tangent &t) const;
@@ -169,8 +173,8 @@ LieGroup<Derived>::act(const Vector &v) const {
 
 template<class Derived>
 typename LieGroup<Derived>::Tangent
-LieGroup<Derived>::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op) const {
-	return op (derived().differentiate (outerGradient, v));
+LieGroup<Derived>::differentiate (const Vector &outerGradient, const Vector &v, const OpFcn &op, const boost::optional<at::Tensor &> &jacobian) const {
+	return op (derived().differentiate (outerGradient, v, jacobian));
 }
 
 /*
