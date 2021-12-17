@@ -1,31 +1,41 @@
 slife:
-  rate: 1
-  synth_pcl_size: 10
+  rate: 1 # rate of asynchronous actions
+  synthetic_pcl: true # pcl from depth camera ? false : true;
+
   topics:
     pointcloud: /camera/depth/pointcloud
     debug_grid: /slife/debug/grid
     debug_1: /slife/debug/history
     debug_2: /slife/debug/debug_2
     estimate: /slife/estimate
+
   landscape:
     measure_radius: 0.7
     smooth_radius: 0.001
-    precision: 10
-  target_optimization_group: position # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`
+    precision: 10           # number of particles in the montecarlo estimate
+    decimation: 1           # pointcloud elements decimatino factor
+    maximum_distance: 200   # remove points from pcl farther than maximum_distance 
+    batch_size: 20         # number of points randomly draw from pcl used for landscape generation
+    stochastic: true
+
+  target_optimization_group: pose # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`
   optimizer:
-    step_sizes: 0.01 # [0.01, 0.01] # pose [0.015, 0.015]
-    norm_weights: 1 # [0, 1]
+    step_sizes: [0.01, 0.01] # pose [0.015, 0.015]
+    norm_weights: [0, 1]
     threshold: 0.000
-    max_iterations: 0
+    max_iterations: 30
     initialization_type: identity # options: {identity, external [not implemented]}
     record_history: true  # time consuming, use only for debug
     disable: false
     cost:
-      batch_size: 20
+      batch_size: 20 
+      stochastic: true
+      reshuffle_batch_indexes: false
+
   debug:
     test_grid:
-      min: -1.0
-      max: 1.0
-      step: 0.1
+      min: -0.2
+      max: 0.2
+      step: 0.01
     z_test_value: 0.
     test_type: none # options: {none, landscape_value, landscape_gradient, cost_value, cost_gradient}

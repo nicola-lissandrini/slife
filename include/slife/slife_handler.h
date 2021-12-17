@@ -11,7 +11,7 @@
 #include "landscape.h"
 #include "test.h"
 
-using TargetGroup = lietorch::Position;
+using TargetGroup = lietorch::Pose;
 
 class SlifeHandler
 {
@@ -33,7 +33,7 @@ public:
 
 private:
 	struct Params {
-		int synthPclSize;
+		bool syntheticPcl;
 		TargetOptimizationGroup targetOptimizationGroup;
 		DEF_SHARED (Params)
 	};
@@ -50,7 +50,7 @@ private:
 	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
 	typename PointcloudMatch<TargetGroup>::Params::Ptr getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams);
 
-	Landscape::Params::Ptr getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams, const PointcloudMatch<TargetGroup>::Params::Ptr &costParams);
+	Landscape::Params::Ptr getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams);
 	SlifeHandler::Params getHandlerParams(XmlRpc::XmlRpcValue &xmlParams);
 
 	void test ();
@@ -60,6 +60,7 @@ public:
 
 	void init (XmlRpc::XmlRpcValue &xmlParams);
 	void updatePointcloud (const torch::Tensor &pointcloud);
+	bool isSyntheticPcl() const;
 
 	int synchronousActions ();
 

@@ -8,7 +8,7 @@ from roslib import message
 
 
 synth_pcl_topic = "/camera/depth/pointcloud"
-points_count = 20
+points_count = 1000
 
 class Pose:
     def __init__ (self, t, q):
@@ -58,7 +58,7 @@ class SynthPclNode:
     
     def create_pcl (self):
         self.pcl = torch.rand ([points_count, 3], dtype=torch.float)
-        #self.pcl = torch.tensor ([[-0.5,0.5,0],[0.5,0,0],[0,-0.5,0]], dtype=torch.float32)
+        #self.pcl = torch.tensor ([[-0.1,0.1,0],[0.1,0,0],[0,-0.1,0]], dtype=torch.float32)
 
     def transform (self, pcl: torch.Tensor, pose: Pose):
         pos = pose.t.unsqueeze (0)

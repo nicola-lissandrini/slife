@@ -63,7 +63,8 @@ class PointcloudMatch : public CostFunction<LieGroup>
 public:
 	struct Params : public CostFunction<LieGroup>::Params {
 		int batchSize;
-
+		bool stochastic;
+		bool reshuffleBatchIndexes;
 		DEF_SHARED(Params)
 	};
 
@@ -74,7 +75,12 @@ protected:
 
 	lietorch::OpFcn sumOut;
 
-	Params &params() const {
+	Pointcloud oldPointcloudBatch (const Tensor &batchIndexes) const;
+
+	Params &params () {
+		return *std::dynamic_pointer_cast<Params> (paramsData);
+	}
+	const Params &params () const {
 		return *std::dynamic_pointer_cast<Params> (paramsData);
 	}
 
@@ -90,6 +96,7 @@ public:
 
 	// Test
 	Tensor test (Test::Type type);
+	Landscape::Params::Ptr getLandscapeParams () const;
 
 	// Cost testing only implemented for Position or Pose
 	TestFcn getCostLambda (Test::Type);

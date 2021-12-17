@@ -11,9 +11,8 @@ Landscape::Landscape (const Params &_params):
 	assert (params.measureRadius > params.smoothRadius && "Smooth radius must be smaller than measure radius");
 	smoothGain = getSmoothGain ();
 	flags.addFlag ("pointcloud_set", true);
+	smoother = make_shared<MontecarloSmoother> (+Dim, _params.precision, _params.smoothRadius);
 
-	const int _dim = Dim; // Fix ODR violation (issue prior to c++17)
-	smoother = make_shared<MontecarloSmoother> (_dim, _params.precision, _params.smoothRadius);
 	valueLambda = [this] (const torch::Tensor &p) -> torch::Tensor  {
 		return preSmoothValue (p);
 	};
@@ -29,15 +28,58 @@ Landscape::Landscape (const Params &_params):
 	yGrid = xyGrid[1].reshape({1,-1});
 }
 
+void Landscape::setPointcloud (const Pointcloud &_pointcloud)
+{
+	Tensor decimated, selected;
+	Tensor validIdxes;
 
+	decimated = _pointcloud.slice (0, 0, nullopt, params.decimation);
+
+	validIdxes = torch::isfinite (decimated).sum (1)/*.logical_and (decimated.norm(2,1) < params.maximumDistance)*/.nonzero ();
+	selected = decimated.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
+
+	pointcloud = selected;
+	flags.set ("pointcloud_set");
+}
+
+/*
 void Landscape::setPointcloud(const Pointcloud &_pointcloud)
 {
-	pointcloud = _pointcloud.unsqueeze(1);
+	Tensor decimated, pointcloudTensor;
+
+	double taken;
+	ROS_WARN ("Decimate");
+	PROFILE (taken,[&]{
+		decimated = _pointcloud.slice (0, 0, nullopt, params.decimation);
+	});
+	ROS_WARN ("Finding only finite points both");
+	PROFILE (taken,[&]{
+
+		torch::Tensor validIdxes = (torch::isfinite(decimated)).sum(1).logical_and (decimated.norm (2,1) < params.maximumDistance).nonzero();
+
+		pointcloudTensor = _pointcloud.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
+	});
+	COUTN(pointcloudTensor.size(0))
+
+	pointcloud = pointcloudTensor.unsqueeze(1);
 	flags.set("pointcloud_set");
 }
+*/
 
 Pointcloud Landscape::getPointcloud() const {
 	return pointcloud;
+}
+
+void Landscape::shuffleBatchIndexes () {
+	batchIndexes = torch::randperm (pointcloud.size(0)).slice (0,0,params.batchSize);
+}
+
+Tensor Landscape::getPointcloudBatch() const
+{
+	if (!params.stochastic)
+		return pointcloud;
+
+	return pointcloud.index ({batchIndexes, Ellipsis});
 }
 
 Tensor Landscape::peak (const Tensor &v) const {
@@ -64,19 +106,19 @@ Tensor Landscape::value(const Tensor &p)
 
 Tensor Landscape::preSmoothGradient (const Tensor &p) const
 {
-	Tensor pointcloudDiff = p - pointcloud.unsqueeze(2);
+	Tensor pointcloudCurrent = getPointcloudBatch ();
+	Tensor pointcloudDiff = p - pointcloudCurrent.unsqueeze (1).unsqueeze(2);
 	Tensor distToPointcloud = pointcloudDiff.pow(2).sum(3);
 	Tensor collapsedDist, idxes;
 
 	tie (collapsedDist, idxes) = distToPointcloud.min (0);
 
 	Tensor collapsedDiff = pointcloudDiff.permute({1,2,0,3})
-					   .index({xGrid,
-							 yGrid,
+					   .index({xGrid.slice (1, 0, idxes.numel()),
+							 yGrid.slice (1, 0, idxes.numel()),
 							 idxes.reshape({1,-1}),
 							 Ellipsis})
-					   .reshape({params.batchSize,
-							   params.precision, -1});
+					   .reshape({-1, params.precision, 3});
 
 	return collapsedDiff / pow (params.measureRadius,2) * smoothGain;
 }
