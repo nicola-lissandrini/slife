@@ -38,12 +38,12 @@ class DisplayHistoryNode:
     def process_data (self, tensor):
         t = tensor[:,0:3]
         q = tensor[:,3:]
-        #q = tensor
+        #q = tensor[:,0:4]
         
         error_t = (t - ground_truth.t).norm (2,1)
-        #print (error_t)
         error_q = (q - ground_truth.q).norm (2,1)
         #error_q = t - ground_truth.t
+        #error_q = None
         #error_t = None
         return error_t, error_q
 

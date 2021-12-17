@@ -3,6 +3,7 @@
 
 using namespace std;
 using namespace torch;
+using namespace torch::indexing;
 using namespace lietorch;
 
 // Instantiate templates
@@ -74,8 +75,8 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 
 		PROFILE(taken, [&]{
 			auto gradient = costFunction()->gradient (state);
-			COUTN(gradient.coeffs.norm());
-			COUTN((params.stepSizes / gradient.coeffs.norm().sqrt()))
+			/*COUTN(gradient.coeffs.norm());
+			COUTN((params.stepSizes / gradient.coeffs.norm().sqrt()))*/
 
 			nextState = state - gradient * (params.stepSizes / gradient.coeffs.norm().sqrt());
 
@@ -108,31 +109,44 @@ PointcloudMatch<LieGroup>::PointcloudMatch (const Landscape::Params::Ptr &landsc
 	sumOut = [] (const Tensor &t) { return t.sum(0); };
 }
 
+template<class LieGroup>
+Pointcloud PointcloudMatch<LieGroup>::oldPointcloudBatch (const Tensor &batchIndexes) const
+{
+	if (!params().stochastic)
+		return oldPcl;
+
+	return oldPcl.index ({landscape.getBatchIndexes (), Ellipsis});
+}
 
 template<class LieGroup>
 typename PointcloudMatch<LieGroup>::Tangent
 PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 {
-	Pointcloud predicted = x * oldPcl.squeeze();
-	Tangent totalGradientNew;
+	Pointcloud predicted;
+	Tangent totalGradient;
+	Tensor landscapeGradient, jacobian;
 	//autograd::profiler::RecordProfile rp("/home/nicola/new.trace");
 
-	const Tensor &landscapeGradient = landscape.gradient(predicted);
-	Tensor jacobian;
+	landscape.shuffleBatchIndexes ();
+	predicted = x * oldPointcloudBatch (landscape.getBatchIndexes ());
 
-	totalGradientNew = x.differentiate(landscapeGradient, predicted, sumOut, jacobian);
+	if (params().reshuffleBatchIndexes)
+		landscape.shuffleBatchIndexes ();
+
+	landscapeGradient = landscape.gradient(predicted);
+	totalGradient = x.differentiate(landscapeGradient, predicted, sumOut, jacobian);
 
 	// COUTN((jacobian.t().mm(jacobian)).inverse().mv(totalGradientNew.coeffs));
 
-	return totalGradientNew;
+	return totalGradient;
 }
 
 template<class LieGroup>
-
 typename PointcloudMatch<LieGroup>::Vector
 PointcloudMatch<LieGroup>::value (const LieGroup &x)
 {
-	Pointcloud predicted = x * oldPcl.squeeze();
+	landscape.shuffleBatchIndexes ();
+	Pointcloud predicted = x * oldPointcloudBatch (landscape.getBatchIndexes ());
 	Tensor totalValue = torch::zeros ({1}, kFloat);
 
 	for (int i = 0; i < predicted.size(0); i++) {
@@ -167,7 +181,7 @@ TestFcn PointcloudMatch<Position>::getCostLambda (Test::Type type)
 	case Test::TEST_COST_VALUES:
 		return [this] (const Tensor &p) -> Tensor { return this->value(Position(p)); };
 	case Test::TEST_COST_GRADIENT:
-		return [this] (const Tensor &p) -> Tensor { return this->gradient(Position(p)).coeffs.slice(0, 0, 3); };
+		return [this] (const Tensor &p) -> Tensor { return this->gradient(Position(p)).coeffs; };
 	default:
 		return TestFcn ();
 	}
@@ -227,27 +241,17 @@ Tensor PointcloudMatch<LieGroup>::test (Test::Type type)
 	const int gridSize = tester->getTestGridSize();
 	Tensor values;// = torch::empty ({testGrid.size(0), testTensorDim}, kFloat);
 
-	float taken1,taken2;
-	PROFILE_N_EN(taken1,[&]{
+	if (type == Test::TEST_LANDSCAPE_GRADIENT ||
+			type == Test::TEST_LANDSCAPE_VALUES)
 		values = testTensorFcn(testGrid);
-	}, 1, false);
-	COUTN(values);
-	/*
-	PROFILE_N_EN(taken2,[&]{
-
-	for (int i = 0; i < testGrid.size(0); i++) {
-		Tensor currentPoint = testGrid[i];
-		Tensor value = testTensorFcn(currentPoint.unsqueeze(0));
-
-		values[i] = value.squeeze();
+	else  {
+		values = torch::empty ({testGrid.size(0), testTensorDim}, kFloat);
+		for (int i = 0; i < testGrid.size(0); i++) {
+			Tensor currentPoint = testGrid[i];
+			Tensor value = testTensorFcn(currentPoint.unsqueeze(0));
+			values[i] = value.squeeze();
+		}
 	}
-
-	}, testGrid.size(0), false);
-
-	cout << "\nEvaluate landscape in " << testGrid.size(0) << " points" << endl;
-	cout << "Single tensor operations: " << taken1 << "ms" << endl;
-	cout << "For loop evalution: " << taken2 << "ms" << endl;
-*/
 
 	if (type == Test::TEST_LANDSCAPE_GRADIENT ||
 			type == Test::TEST_COST_GRADIENT) {

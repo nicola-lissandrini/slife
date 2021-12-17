@@ -3,6 +3,7 @@
 
 #include "rn.h"
 #include "quaternion.h"
+#include <concepts>
 
 //#include <manif/impl/se3/SE3.h>
 

@@ -60,7 +60,7 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 {
 	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr optimizerParams = getOptimizerParams (xmlParams["optimizer"]);
 	typename PointcloudMatch<TargetGroup>::Params::Ptr costFunctionParams = getCostFunctionParams (xmlParams["optimizer"]["cost"]);
-	Landscape::Params::Ptr landscapeParams = getLandscapeParams(xmlParams["landscape"], costFunctionParams);
+	Landscape::Params::Ptr landscapeParams = getLandscapeParams(xmlParams["landscape"]);
 
 	optimizer = make_shared<PointcloudMatchOptimizer<TargetGroup>> (optimizerParams,
 													    make_shared<PointcloudMatch<TargetGroup>> (landscapeParams,
@@ -71,11 +71,15 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 	flags.set ("initialized");
 }
 
-typename SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlParams)
+bool SlifeHandler::isSyntheticPcl () const {
+	return params.syntheticPcl;
+}
+
+SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlParams)
 {
 	Params params;
 
-	params.synthPclSize = paramInt (xmlParams, "synth_pcl_size");
+	params.syntheticPcl = paramBool (xmlParams, "synthetic_pcl");
 	params.targetOptimizationGroup = paramEnum<TargetOptimizationGroup> (xmlParams, "target_optimization_group",{"position","quaternion_r4","quaternion","pose_r4","pose","dual_quaternion"});
 
 	switch (params.targetOptimizationGroup) {
@@ -109,6 +113,8 @@ SlifeHandler::getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams)
 	typename PointcloudMatch<TargetGroup>::Params::Ptr costFunctionParams = make_shared<PointcloudMatch<TargetGroup>::Params> ();
 
 	costFunctionParams->batchSize = paramInt (xmlParams, "batch_size");
+	costFunctionParams->stochastic = paramBool (xmlParams, "stochastic");
+	costFunctionParams->reshuffleBatchIndexes = paramBool (xmlParams, "reshuffle_batch_indexes");
 
 	return costFunctionParams;
 }
@@ -129,16 +135,17 @@ SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
 	return optimizerParams;
 }
 
-Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams, const PointcloudMatch<TargetGroup>::Params::Ptr &costParams)
+Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams)
 {
 	Landscape::Params::Ptr landscapeParams = make_shared<Landscape::Params> ();
 
 	landscapeParams->measureRadius = paramDouble (xmlParams, "measure_radius");
 	landscapeParams->smoothRadius = paramDouble (xmlParams, "smooth_radius");
 	landscapeParams->precision = paramInt (xmlParams,"precision");
-	landscapeParams->batchSize = costParams->batchSize;
+	landscapeParams->batchSize = paramInt (xmlParams, "batch_size");
 	landscapeParams->maximumDistance = paramDouble (xmlParams, "maximum_distance");
 	landscapeParams->decimation = paramInt (xmlParams,"decimation");
+	landscapeParams->stochastic = paramBool (xmlParams, "stochastic");
 
 	return landscapeParams;
 }

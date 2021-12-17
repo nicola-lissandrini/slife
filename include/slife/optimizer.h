@@ -63,7 +63,8 @@ class PointcloudMatch : public CostFunction<LieGroup>
 public:
 	struct Params : public CostFunction<LieGroup>::Params {
 		int batchSize;
-
+		bool stochastic;
+		bool reshuffleBatchIndexes;
 		DEF_SHARED(Params)
 	};
 
@@ -73,6 +74,15 @@ protected:
 	Pointcloud oldPcl;
 
 	lietorch::OpFcn sumOut;
+
+	Pointcloud oldPointcloudBatch (const Tensor &batchIndexes) const;
+
+	Params &params () {
+		return *std::dynamic_pointer_cast<Params> (paramsData);
+	}
+	const Params &params () const {
+		return *std::dynamic_pointer_cast<Params> (paramsData);
+	}
 
 public:
 	PointcloudMatch (const Landscape::Params::Ptr &landscapeParams,

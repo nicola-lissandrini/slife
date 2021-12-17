@@ -85,18 +85,17 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 	const int pclSize = pointcloud.height * pointcloud.width;
 	double taken;
 	torch::Tensor pointcloudTensor;
-	ROS_WARN ("Full Tensor loading");
-	PROFILE (taken, [&]{
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 4}, // put this back for synth pcl -> {pclSize, 3},
-									  torch::TensorOptions().dtype(torch::kFloat32))
-					    .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
 
-		// REMOVING TEMPORARLY FOR SYNTHETIC PCL TESTS
-		// .index({torch::indexing::Ellipsis, torch::indexing::Slice(0,3)});
-	});
-	COUT (pointcloudTensor.size(0));
+	if (slifeHandler.isSyntheticPcl ()) {
+		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // put this back for real pcl -> {pclSize, 4},
+									  torch::TensorOptions().dtype(torch::kFloat32));
+	} else {
+		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 4},
+									  torch::TensorOptions().dtype (torch::kFloat32))
+					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
+	}
 
-	
+	COUTN (pointcloudTensor.size(0));
 
 	slifeHandler.updatePointcloud(pointcloudTensor);
 }
