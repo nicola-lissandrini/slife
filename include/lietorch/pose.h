@@ -74,7 +74,9 @@ public:
 
 	LIETORCH_INHERIT_GROUP_TRAITS
 
+
 	PoseBase (const Translation &_position = Translation (), const Rotation &_orientation = Rotation ());
+	PoseBase (const DataType &coeffs);
 
 	PoseBase inverse () const;
 	Tangent log () const;

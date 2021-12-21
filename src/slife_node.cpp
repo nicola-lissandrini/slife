@@ -21,8 +21,6 @@
 #include <pcl/keypoints/narf_keypoint.h>
 #include <pcl/io/pcd_io.h>
 
-#include <manif/SE2.h>
-
 using namespace ros;
 using namespace std;
 using namespace torch;
@@ -40,6 +38,8 @@ SlifeNode::SlifeNode ():
 {
 	initParams ();
 	initROS ();
+
+	lastGroundTruthTensor = torch::empty ({7}, kFloat);
 }
 
 void SlifeNode::initParams () {
@@ -48,7 +48,9 @@ void SlifeNode::initParams () {
 }
 
 void SlifeNode::initROS () {
-	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2, &SlifeNode::pointcloudCallback);
+	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 1, &SlifeNode::pointcloudCallback);
+	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 1, &SlifeNode::groundTruthCallback);
+
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
 	addPub<std_msgs::Float32MultiArray> ("debug_1", paramString(params["topics"], "debug_1"), 1);
@@ -79,25 +81,36 @@ void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const 
 	}
 }
 
-// WARNING: takes 5-10ms
-void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
+void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMsg)
 {
-	const int pclSize = pointcloud.height * pointcloud.width;
-	double taken;
-	torch::Tensor pointcloudTensor;
+	const int pclSize = pointcloudMsg.height * pointcloudMsg.width;
+	Tensor pointcloudTensor;
 
 	if (slifeHandler.isSyntheticPcl ()) {
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // put this back for real pcl -> {pclSize, 4},
+		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 3},
 									  torch::TensorOptions().dtype(torch::kFloat32));
 	} else {
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 4},
+		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 4},
 									  torch::TensorOptions().dtype (torch::kFloat32))
 					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
 	}
+	transformToTensor (lastGroundTruthTensor, lastGroundTruthMsg);
+	slifeHandler.performOptimization(pointcloudTensor, lastGroundTruthTensor);
+}
 
-	COUTN (pointcloudTensor.size(0));
+void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg) {
+	lastGroundTruthMsg = groundTruthMsg;
+}
 
-	slifeHandler.updatePointcloud(pointcloudTensor);
+void transformToTensor (Tensor &out, const geometry_msgs::TransformStamped &transformMsg)
+{
+	out[0] = transformMsg.transform.translation.x;
+	out[1] = transformMsg.transform.translation.y;
+	out[2] = transformMsg.transform.translation.z;
+	out[3] = transformMsg.transform.rotation.x;
+	out[4] = transformMsg.transform.rotation.y;
+	out[5] = transformMsg.transform.rotation.z;
+	out[6] = transformMsg.transform.rotation.w;
 }
 
 Tensor Test::getTestGrid() const {

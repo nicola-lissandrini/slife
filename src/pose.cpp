@@ -36,6 +36,11 @@ PoseBase<Translation, Rotation>::PoseBase (const Translation &translation, const
 }
 
 template<class Translation, class Rotation>
+PoseBase<Translation, Rotation>::PoseBase (const DataType &coeffs):
+	Base(coeffs)
+{}
+
+template<class Translation, class Rotation>
 PoseBase<Translation, Rotation> PoseBase<Translation, Rotation>::inverse () const
 {
 	Rotation inv = rotation().inverse();

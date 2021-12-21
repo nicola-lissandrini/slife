@@ -10,17 +10,49 @@ SlifeHandler::SlifeHandler(const SlifeHandler::TensorPublisher &_tensorPublisher
 	flags.addFlag ("initialized", true);
 }
 
-void SlifeHandler::updatePointcloud (const Tensor &pointcloud)
+
+template<>
+Position SlifeHandler::loadGroundTruth<Position> (const Tensor &grounTruthTensor) {
+	return Position (grounTruthTensor.slice (0,0,LIETORCH_POSITION_DIM));
+}
+
+template<>
+Quaternion SlifeHandler::loadGroundTruth<Quaternion> (const Tensor &grounTruthTensor) {
+	return Quaternion (grounTruthTensor.slice (0,LIETORCH_POSITION_DIM));
+}
+
+template<>
+Pose SlifeHandler::loadGroundTruth<Pose> (const Tensor &groundTruthTensor) {
+	return Pose (groundTruthTensor);
+}
+
+void SlifeHandler::performOptimization (const Tensor &pointcloud, const Tensor &groundTruthTensor)
 {
-	optimizer->costFunction()->updatePointcloud(pointcloud);
+	optimizer->costFunction()->updatePointcloud (pointcloud);
 
 	if (optimizer->isReady())
 	{
 		TargetGroup estimate = optimizer->optimize();
+		TargetGroup groundTruth = loadGroundTruth<TargetGroup> (groundTruthTensor);
+		auto history = optimizer->getHistory ();
 
 		tensorPublishCallback (OUTPUT_ESTIMATE, estimate.coeffs);
-		tensorPublishCallback (OUTPUT_DEBUG_1,  historyToTensor (optimizer->getHistory ()));
+		tensorPublishCallback (OUTPUT_DEBUG_1,  historyToTensor (history));
+		tensorPublishCallback (OUTPUT_DEBUG_2, computeHistoryError (history, groundTruth));
 	}
+}
+
+Tensor SlifeHandler::computeHistoryError (const std::vector<TargetGroup> &historyVector, const TargetGroup &groundTruth)
+{
+	Tensor errorHistory = torch::empty ({historyVector.size (), TargetGroup::Dim}, kFloat);
+	int i = 0;
+	
+	for (const TargetGroup &curr : historyVector) {
+		errorHistory[i] = (curr - groundTruth).coeffs;
+		i++;
+	}
+	
+	return errorHistory;
 }
 
 Tensor SlifeHandler::historyToTensor (const std::vector<TargetGroup> &historyVector)
