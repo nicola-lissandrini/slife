@@ -1,25 +1,10 @@
 #include "slife/slife_node.h"
-#include "sparcsnode/multi_array_manager.h"
+#include "../../sparcsnode/include/sparcsnode/multi_array_manager.h"
 
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
 
 #include <eigen3/Eigen/Core>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/conversions.h>
-#include <pcl_ros/transforms.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_types.h>
-#include <pcl/PCLPointCloud2.h>
-#include <pcl/conversions.h>
-#include <pcl_ros/transforms.h>
-#include <pcl/range_image/range_image.h>
-#include <pcl/filters/approximate_voxel_grid.h>
-#include <pcl/features/range_image_border_extractor.h>
-#include <pcl/keypoints/narf_keypoint.h>
-#include <pcl/io/pcd_io.h>
 
 using namespace ros;
 using namespace std;
@@ -30,16 +15,15 @@ Test::Ptr tester;
 
 SlifeNode::SlifeNode ():
 	SparcsNode(NODE_NAME),
-	slifeHandler(std::bind (
-				   &SlifeNode::publishTensor,
-				   this,
-				   std::placeholders::_1,
-				   std::placeholders::_2))
+	slifeHandler([this](SlifeHandler::OutputTensorType outputType,
+					const torch::Tensor &tensor,
+					const std::vector<uint8_t> &extraData = std::vector<uint8_t> ())
+			   { return publishTensor (outputType, tensor, extraData);})
 {
 	initParams ();
 	initROS ();
 
-	lastGroundTruthTensor = torch::empty ({7}, kFloat);
+	lastGroundTruthTensor = torch::empty ({LIETORCH_POSITION_DIM + LIETORCH_QUATERNION_DIM}, kFloat);
 }
 
 void SlifeNode::initParams () {
@@ -61,7 +45,7 @@ int SlifeNode::actions ()  {
 	return slifeHandler.synchronousActions();
 }
 
-void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor)
+void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor, const std::vector<uint8_t> &extraData)
 {
 	MultiArray32Manager array(vector<int> (tensor.sizes().begin(), tensor.sizes().end()));
 	

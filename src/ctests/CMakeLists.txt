@@ -21,5 +21,5 @@ include_directories(
 	/opt/ros/noetic/include
 )
 
-add_executable(test_lietorch test_max_nan.cpp)
+add_executable(test_lietorch test_bind.cpp)
 target_link_libraries (test_lietorch ${TORCH_LIBRARIES} ${PCL_LIBRARIES})
