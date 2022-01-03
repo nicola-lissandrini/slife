@@ -8,7 +8,7 @@ from roslib import message
 
 
 synth_pcl_topic = "/camera/depth/pointcloud"
-points_count = 1000
+points_count = 20
 
 class Pose:
     def __init__ (self, t, q):
@@ -81,10 +81,11 @@ class SynthPclNode:
 
     def spin (self):
         rospy.sleep (1)
-        self.create_pcl ()
-        self.send_pcl (False)
-        rospy.sleep (0.5)
-        self.send_pcl (True)
+        for i in range(1):
+            self.create_pcl ()
+            self.send_pcl (False)
+            rospy.sleep (0.5)
+            self.send_pcl (True)
         # rospy.spin ()
 
 if __name__ == "__main__":
