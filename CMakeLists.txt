@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
 
 set(EIGEN3_INCLUDE_DIR /usr/include/eigen3)
 set(Torch_DIR "/opt/libtorch/share/cmake/Torch")
-set(USE_CUDA 0)
 
 find_package (Torch REQUIRED)
 

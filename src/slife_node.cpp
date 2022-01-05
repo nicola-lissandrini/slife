@@ -94,8 +94,12 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
 									  torch::TensorOptions().dtype (torch::kFloat32))
 					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
 	}
+	slifeHandler.performOptimization(pointcloudTensor, lastGroundTruthTensor);
+}
 
-	COUTN (pointcloudTensor.size(0));
+void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg) {
+	transformToTensor (lastGroundTruthTensor, lastGroundTruthMsg);
+}
 
 	slifeHandler.updatePointcloud(pointcloudTensor);
 }
