@@ -1,27 +1,10 @@
 #include "slife/slife_node.h"
-#include "sparcsnode/multi_array_manager.h"
+#include "../../sparcsnode/include/sparcsnode/multi_array_manager.h"
 
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
 
 #include <eigen3/Eigen/Core>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/conversions.h>
-#include <pcl_ros/transforms.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_types.h>
-#include <pcl/PCLPointCloud2.h>
-#include <pcl/conversions.h>
-#include <pcl_ros/transforms.h>
-#include <pcl/range_image/range_image.h>
-#include <pcl/filters/approximate_voxel_grid.h>
-#include <pcl/features/range_image_border_extractor.h>
-#include <pcl/keypoints/narf_keypoint.h>
-#include <pcl/io/pcd_io.h>
-
-#include <manif/SE2.h>
 
 using namespace ros;
 using namespace std;
@@ -32,14 +15,15 @@ Test::Ptr tester;
 
 SlifeNode::SlifeNode ():
 	SparcsNode(NODE_NAME),
-	slifeHandler(std::bind (
-				   &SlifeNode::publishTensor,
-				   this,
-				   std::placeholders::_1,
-				   std::placeholders::_2))
+	slifeHandler([this](SlifeHandler::OutputTensorType outputType,
+					const torch::Tensor &tensor,
+					const std::vector<uint8_t> &extraData = std::vector<uint8_t> ())
+			   { return publishTensor (outputType, tensor, extraData);})
 {
 	initParams ();
 	initROS ();
+
+	lastGroundTruthTensor = torch::empty ({LIETORCH_POSITION_DIM + LIETORCH_QUATERNION_DIM}, kFloat);
 }
 
 void SlifeNode::initParams () {
@@ -48,7 +32,9 @@ void SlifeNode::initParams () {
 }
 
 void SlifeNode::initROS () {
-	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2, &SlifeNode::pointcloudCallback);
+	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 1, &SlifeNode::pointcloudCallback);
+	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 1, &SlifeNode::groundTruthCallback);
+
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
 	addPub<std_msgs::Float32MultiArray> ("debug_1", paramString(params["topics"], "debug_1"), 1);
@@ -59,7 +45,7 @@ int SlifeNode::actions ()  {
 	return slifeHandler.synchronousActions();
 }
 
-void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor)
+void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor, const std::vector<uint8_t> &extraData)
 {
 	MultiArray32Manager array(vector<int> (tensor.sizes().begin(), tensor.sizes().end()));
 	
@@ -79,18 +65,16 @@ void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const 
 	}
 }
 
-// WARNING: takes 5-10ms
-void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
+void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMsg)
 {
-	const int pclSize = pointcloud.height * pointcloud.width;
-	double taken;
-	torch::Tensor pointcloudTensor;
+	const int pclSize = pointcloudMsg.height * pointcloudMsg.width;
+	Tensor pointcloudTensor;
 
 	if (slifeHandler.isSyntheticPcl ()) {
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // put this back for real pcl -> {pclSize, 4},
+		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 3},
 									  torch::TensorOptions().dtype(torch::kFloat32));
 	} else {
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 4},
+		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 4},
 									  torch::TensorOptions().dtype (torch::kFloat32))
 					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
 	}
@@ -101,7 +85,15 @@ void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &grou
 	transformToTensor (lastGroundTruthTensor, lastGroundTruthMsg);
 }
 
-	slifeHandler.updatePointcloud(pointcloudTensor);
+void transformToTensor (Tensor &out, const geometry_msgs::TransformStamped &transformMsg)
+{
+	out[0] = transformMsg.transform.translation.x;
+	out[1] = transformMsg.transform.translation.y;
+	out[2] = transformMsg.transform.translation.z;
+	out[3] = transformMsg.transform.rotation.x;
+	out[4] = transformMsg.transform.rotation.y;
+	out[5] = transformMsg.transform.rotation.z;
+	out[6] = transformMsg.transform.rotation.w;
 }
 
 Tensor Test::getTestGrid() const {

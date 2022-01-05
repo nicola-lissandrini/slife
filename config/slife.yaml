@@ -4,6 +4,7 @@ slife:
 
   topics:
     pointcloud: /camera/depth/pointcloud
+    ground_truth: /vicon/depth_camera/depth_camera
     debug_grid: /slife/debug/grid
     debug_1: /slife/debug/history
     debug_2: /slife/debug/debug_2
