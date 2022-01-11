@@ -3,7 +3,6 @@
 
 #include "rn.h"
 #include "quaternion.h"
-#include <concepts>
 
 //#include <manif/impl/se3/SE3.h>
 
@@ -32,7 +31,7 @@ struct traits<PoseBase<Translation, Rotation>>
 template<class Translation, class Rotation>
 struct traits<TwistBase<Translation, Rotation>>
 {
-	static constexpr int Dim = Translation::Dim + Rotation::Dim;
+	static constexpr int Dim = Translation::Tangent::Dim + Rotation::Tangent::Dim;
 
 	using LieAlg = torch::Tensor;
 	using LieGroup = PoseBase<Translation, Rotation>;

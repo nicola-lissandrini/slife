@@ -57,27 +57,27 @@ include CMakeFiles/test_lietorch.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/test_lietorch.dir/flags.make
 
-CMakeFiles/test_lietorch.dir/test_cuda.cpp.o: CMakeFiles/test_lietorch.dir/flags.make
-CMakeFiles/test_lietorch.dir/test_cuda.cpp.o: ../test_cuda.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_lietorch.dir/test_cuda.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/test_lietorch.dir/test_cuda.cpp.o -c /home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/test_cuda.cpp
+CMakeFiles/test_lietorch.dir/test_queue.cpp.o: CMakeFiles/test_lietorch.dir/flags.make
+CMakeFiles/test_lietorch.dir/test_queue.cpp.o: ../test_queue.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/test_lietorch.dir/test_queue.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/test_lietorch.dir/test_queue.cpp.o -c /home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/test_queue.cpp
 
-CMakeFiles/test_lietorch.dir/test_cuda.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/test_lietorch.dir/test_cuda.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/test_cuda.cpp > CMakeFiles/test_lietorch.dir/test_cuda.cpp.i
+CMakeFiles/test_lietorch.dir/test_queue.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/test_lietorch.dir/test_queue.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/test_queue.cpp > CMakeFiles/test_lietorch.dir/test_queue.cpp.i
 
-CMakeFiles/test_lietorch.dir/test_cuda.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/test_lietorch.dir/test_cuda.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/test_cuda.cpp -o CMakeFiles/test_lietorch.dir/test_cuda.cpp.s
+CMakeFiles/test_lietorch.dir/test_queue.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/test_lietorch.dir/test_queue.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/test_queue.cpp -o CMakeFiles/test_lietorch.dir/test_queue.cpp.s
 
 # Object files for target test_lietorch
 test_lietorch_OBJECTS = \
-"CMakeFiles/test_lietorch.dir/test_cuda.cpp.o"
+"CMakeFiles/test_lietorch.dir/test_queue.cpp.o"
 
 # External object files for target test_lietorch
 test_lietorch_EXTERNAL_OBJECTS =
 
-test_lietorch: CMakeFiles/test_lietorch.dir/test_cuda.cpp.o
+test_lietorch: CMakeFiles/test_lietorch.dir/test_queue.cpp.o
 test_lietorch: CMakeFiles/test_lietorch.dir/build.make
 test_lietorch: /opt/libtorch/lib/libtorch.so
 test_lietorch: /opt/libtorch/lib/libc10.so

@@ -1,6 +1,7 @@
 slife:
   rate: 1 # rate of asynchronous actions
   synthetic_pcl: true # pcl from depth camera ? false : true;
+  ground_truth_queue_length: 2
 
   topics:
     pointcloud: /camera/depth/pointcloud

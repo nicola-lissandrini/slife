@@ -7,7 +7,7 @@ using namespace lietorch;
 
 SlifeHandler::SlifeHandler(const SlifeHandler::TensorPublisherExtra &_tensorPublisher):
 	tensorPublishExtraCallback(_tensorPublisher),
-	tensorPublishCallback(bind (tensorPublishExtraCallback,
+	tensorPublishCallback(bind (_tensorPublisher,
 						   placeholders::_1,
 						   placeholders::_2,
 						   std::vector<uint8_t> ()))
@@ -17,42 +17,44 @@ SlifeHandler::SlifeHandler(const SlifeHandler::TensorPublisherExtra &_tensorPubl
 
 
 template<>
-Position SlifeHandler::loadGroundTruth<Position> (const Tensor &grounTruthTensor) {
+Position SlifeHandler::poseTensorToGroup<Position> (const Tensor &grounTruthTensor) const {
 	return Position (grounTruthTensor.slice (0,0,LIETORCH_POSITION_DIM));
 }
 
 template<>
-Quaternion SlifeHandler::loadGroundTruth<Quaternion> (const Tensor &grounTruthTensor) {
+Quaternion SlifeHandler::poseTensorToGroup<Quaternion> (const Tensor &grounTruthTensor) const {
 	return Quaternion (grounTruthTensor.slice (0,LIETORCH_POSITION_DIM));
 }
 
 template<>
-Pose SlifeHandler::loadGroundTruth<Pose> (const Tensor &groundTruthTensor) {
+Pose SlifeHandler::poseTensorToGroup<Pose> (const Tensor &groundTruthTensor) const {
 	return Pose (groundTruthTensor);
 }
 
-void SlifeHandler::performOptimization (const Tensor &pointcloud, const Tensor &groundTruthTensor)
+void SlifeHandler::updateGroundTruth (const Tensor &groundTruthTensor) {
+	groundTruthTracker->updateGroundTruth (
+				poseTensorToGroup<TargetGroup> (groundTruthTensor));
+}
+
+void SlifeHandler::performOptimization (const Tensor &pointcloud)
 {
 	optimizer->costFunction()->updatePointcloud (pointcloud);
 
 	if (optimizer->isReady())
 	{
 		TargetGroup estimate = optimizer->optimize();
-		TargetGroup groundTruth = loadGroundTruth<TargetGroup> (groundTruthTensor);
+		TargetGroup relativeGroundTruth = groundTruthTracker->getRelativeGroundTruth ();
 		auto history = optimizer->getHistory ();
 
-		QUA;
 		tensorPublishCallback (OUTPUT_ESTIMATE, estimate.coeffs);
-		tensorPublishCallback (OUTPUT_DEBUG_1,  historyToTensor (history));
-		QUA;
-		tensorPublishExtraCallback (OUTPUT_DEBUG_2, computeHistoryError (history, groundTruth), {1});
-		QUA;
+		tensorPublishExtraCallback (OUTPUT_DEBUG_1, historyToTensor (history), {params.targetOptimizationGroup});
+		tensorPublishExtraCallback (OUTPUT_DEBUG_2, computeHistoryError (history, relativeGroundTruth), {params.targetOptimizationGroup});
 	}
 }
 
 Tensor SlifeHandler::computeHistoryError (const std::vector<TargetGroup> &historyVector, const TargetGroup &groundTruth)
 {
-	Tensor errorHistory = torch::empty ({historyVector.size (), TargetGroup::Dim}, kFloat);
+	Tensor errorHistory = torch::empty ({historyVector.size (), TargetGroup::Tangent::Dim}, kFloat);
 	int i = 0;
 	
 	for (const TargetGroup &curr : historyVector) {
@@ -102,11 +104,12 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 	typename PointcloudMatch<TargetGroup>::Params::Ptr costFunctionParams = getCostFunctionParams (xmlParams["optimizer"]["cost"]);
 	Landscape::Params::Ptr landscapeParams = getLandscapeParams(xmlParams["landscape"]);
 
+	params = getHandlerParams (xmlParams);
+
 	optimizer = make_shared<PointcloudMatchOptimizer<TargetGroup>> (optimizerParams,
 													    make_shared<PointcloudMatch<TargetGroup>> (landscapeParams,
 																						  costFunctionParams));
-
-	params = getHandlerParams (xmlParams);
+	groundTruthTracker = make_shared<GroundTruthTracker> (params.groundTruthTracker);
 
 	flags.set ("initialized");
 }
@@ -121,6 +124,7 @@ SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlPar
 
 	params.syntheticPcl = paramBool (xmlParams, "synthetic_pcl");
 	params.targetOptimizationGroup = paramEnum<TargetOptimizationGroup> (xmlParams, "target_optimization_group",{"position","quaternion_r4","quaternion","pose_r4","pose","dual_quaternion"});
+	params.groundTruthTracker.queueLength = paramInt (xmlParams, "ground_truth_queue_length");
 
 	switch (params.targetOptimizationGroup) {
 	case TARGET_POSITION:
@@ -189,6 +193,24 @@ Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xm
 
 	return landscapeParams;
 }
+
+GroundTruthTracker::GroundTruthTracker(const GroundTruthTracker::Params &_params):
+	params(_params)
+{}
+
+void GroundTruthTracker::updateGroundTruth (const TargetGroup &groundTruth)
+{
+	groundTruths.push (groundTruth);
+
+	if (groundTruths.size () > params.queueLength)
+		groundTruths.pop ();
+}
+
+TargetGroup GroundTruthTracker::getRelativeGroundTruth () const {
+	return groundTruths.front () * groundTruths.back ().inverse ();
+}
+
+
 
 
 

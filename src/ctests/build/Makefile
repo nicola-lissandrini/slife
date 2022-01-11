@@ -123,32 +123,32 @@ test_lietorch/fast:
 	$(MAKE) -f CMakeFiles/test_lietorch.dir/build.make CMakeFiles/test_lietorch.dir/build
 .PHONY : test_lietorch/fast
 
-test_cuda.o: test_cuda.cpp.o
+test_queue.o: test_queue.cpp.o
 
-.PHONY : test_cuda.o
+.PHONY : test_queue.o
 
 # target to build an object file
-test_cuda.cpp.o:
-	$(MAKE) -f CMakeFiles/test_lietorch.dir/build.make CMakeFiles/test_lietorch.dir/test_cuda.cpp.o
-.PHONY : test_cuda.cpp.o
+test_queue.cpp.o:
+	$(MAKE) -f CMakeFiles/test_lietorch.dir/build.make CMakeFiles/test_lietorch.dir/test_queue.cpp.o
+.PHONY : test_queue.cpp.o
 
-test_cuda.i: test_cuda.cpp.i
+test_queue.i: test_queue.cpp.i
 
-.PHONY : test_cuda.i
+.PHONY : test_queue.i
 
 # target to preprocess a source file
-test_cuda.cpp.i:
-	$(MAKE) -f CMakeFiles/test_lietorch.dir/build.make CMakeFiles/test_lietorch.dir/test_cuda.cpp.i
-.PHONY : test_cuda.cpp.i
+test_queue.cpp.i:
+	$(MAKE) -f CMakeFiles/test_lietorch.dir/build.make CMakeFiles/test_lietorch.dir/test_queue.cpp.i
+.PHONY : test_queue.cpp.i
 
-test_cuda.s: test_cuda.cpp.s
+test_queue.s: test_queue.cpp.s
 
-.PHONY : test_cuda.s
+.PHONY : test_queue.s
 
 # target to generate assembly for a file
-test_cuda.cpp.s:
-	$(MAKE) -f CMakeFiles/test_lietorch.dir/build.make CMakeFiles/test_lietorch.dir/test_cuda.cpp.s
-.PHONY : test_cuda.cpp.s
+test_queue.cpp.s:
+	$(MAKE) -f CMakeFiles/test_lietorch.dir/build.make CMakeFiles/test_lietorch.dir/test_queue.cpp.s
+.PHONY : test_queue.cpp.s
 
 # Help Target
 help:
@@ -159,9 +159,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... test_lietorch"
-	@echo "... test_cuda.o"
-	@echo "... test_cuda.i"
-	@echo "... test_cuda.s"
+	@echo "... test_queue.o"
+	@echo "... test_queue.i"
+	@echo "... test_queue.s"
 .PHONY : help
 
 

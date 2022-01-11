@@ -17,13 +17,11 @@ SlifeNode::SlifeNode ():
 	SparcsNode(NODE_NAME),
 	slifeHandler([this](SlifeHandler::OutputTensorType outputType,
 					const torch::Tensor &tensor,
-					const std::vector<uint8_t> &extraData = std::vector<uint8_t> ())
+					const std::vector<uint8_t> &extraData)
 			   { return publishTensor (outputType, tensor, extraData);})
 {
 	initParams ();
 	initROS ();
-
-	lastGroundTruthTensor = torch::empty ({LIETORCH_POSITION_DIM + LIETORCH_QUATERNION_DIM}, kFloat);
 }
 
 void SlifeNode::initParams () {
@@ -32,8 +30,8 @@ void SlifeNode::initParams () {
 }
 
 void SlifeNode::initROS () {
-	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 1, &SlifeNode::pointcloudCallback);
-	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 1, &SlifeNode::groundTruthCallback);
+	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2, &SlifeNode::pointcloudCallback);
+	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 2, &SlifeNode::groundTruthCallback);
 
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
@@ -67,6 +65,7 @@ void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const 
 
 void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMsg)
 {
+	QUA;
 	const int pclSize = pointcloudMsg.height * pointcloudMsg.width;
 	Tensor pointcloudTensor;
 
@@ -78,22 +77,27 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMs
 									  torch::TensorOptions().dtype (torch::kFloat32))
 					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
 	}
-	slifeHandler.performOptimization(pointcloudTensor, lastGroundTruthTensor);
+	slifeHandler.performOptimization(pointcloudTensor);
 }
 
-void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg) {
-	transformToTensor (lastGroundTruthTensor, lastGroundTruthMsg);
+void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg)
+{
+	QUA;
+	Tensor groundTruthTensor;
+	transformToTensor (groundTruthTensor, groundTruthMsg);
+
+	slifeHandler.updateGroundTruth (groundTruthTensor);
 }
 
 void transformToTensor (Tensor &out, const geometry_msgs::TransformStamped &transformMsg)
 {
-	out[0] = transformMsg.transform.translation.x;
-	out[1] = transformMsg.transform.translation.y;
-	out[2] = transformMsg.transform.translation.z;
-	out[3] = transformMsg.transform.rotation.x;
-	out[4] = transformMsg.transform.rotation.y;
-	out[5] = transformMsg.transform.rotation.z;
-	out[6] = transformMsg.transform.rotation.w;
+	out = torch::tensor ({transformMsg.transform.translation.x,
+					  transformMsg.transform.translation.y,
+					  transformMsg.transform.translation.z,
+					  transformMsg.transform.rotation.x,
+					  transformMsg.transform.rotation.y,
+					  transformMsg.transform.rotation.z,
+					  transformMsg.transform.rotation.w}, kFloat);
 }
 
 Tensor Test::getTestGrid() const {
@@ -159,8 +163,8 @@ Test::Test (XmlRpc::XmlRpcValue &xmlParams,
 int main (int argc, char *argv[])
 {
 	init (argc, argv, NODE_NAME);
-	
+
 	SlifeNode sn;
-	
+
 	return sn.spin ();
 }

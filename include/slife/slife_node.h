@@ -15,8 +15,6 @@ void transformToTensor (Tensor &out, const geometry_msgs::TransformStamped &tran
 class SlifeNode : public SparcsNode
 {
 	SlifeHandler slifeHandler;
-	geometry_msgs::TransformStamped lastGroundTruthMsg;
-	torch::Tensor lastGroundTruthTensor;
 
 	void initParams ();
 	void initROS ();

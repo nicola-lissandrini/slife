@@ -1,5 +1,5 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/test_lietorch.dir/test_cuda.cpp.o"
+  "CMakeFiles/test_lietorch.dir/test_queue.cpp.o"
   "test_lietorch"
   "test_lietorch.pdb"
 )

@@ -92,7 +92,7 @@
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/test_bind.cpp">
+		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/test_queue.cpp">
 			<Option target="test_lietorch"/>
 		</Unit>
 		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/CMakeLists.txt">

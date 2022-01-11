@@ -3,11 +3,13 @@
 import rospy
 import torch
 from sensor_msgs.msg import PointCloud2
+from geometry_msgs.msg import TransformStamped
 import sensor_msgs.point_cloud2 as pc2
 from roslib import message
 
 
 synth_pcl_topic = "/camera/depth/pointcloud"
+ground_truth_topic = "/vicon/depth_camera/depth_camera"
 points_count = 20
 
 class Pose:
@@ -16,6 +18,7 @@ class Pose:
         self.q = torch.tensor (q,dtype=torch.float)
 
 ground_truth = Pose([0.1,0.0,0.0],[0.0499792, 0, 0, 0.9987503]) 
+identity = Pose([0,0,0], [0,0,0,1])
 
 def quat2rot (quat):
     x = quat[0]
@@ -55,6 +58,7 @@ class SynthPclNode:
     def __init__ (self):
         rospy.init_node ("synth_pcl")
         self.pcl_pub = rospy.Publisher (synth_pcl_topic, PointCloud2, queue_size=1)
+        self.ground_truth_pub = rospy.Publisher (ground_truth_topic, TransformStamped, queue_size=1)
     
     def create_pcl (self):
         self.pcl = torch.rand ([points_count, 3], dtype=torch.float)
@@ -67,10 +71,32 @@ class SynthPclNode:
         return rotm.mm (pcl.transpose(0,1)).transpose(0,1) + pos
 
     def send_pcl (self, do_transform: bool):
+        print ("pcl")
         if (do_transform):
             self.pcl = self.transform (self.pcl, ground_truth)
-
+            
         self.publish (self.pcl)
+    
+    def send_ground_truth (self, do_transform: bool):
+        print ("gt")
+        ground_truth_transform = None
+        if (do_transform):        
+            ground_truth_transform = ground_truth
+        else:
+            ground_truth_transform = identity
+            
+        ground_truth_msg = TransformStamped ()
+        ground_truth_msg.transform.translation.x = ground_truth_transform.t[0]
+        ground_truth_msg.transform.translation.y = ground_truth_transform.t[1]
+        ground_truth_msg.transform.translation.z = ground_truth_transform.t[2]
+        
+        ground_truth_msg.transform.rotation.x = ground_truth_transform.q[0]
+        ground_truth_msg.transform.rotation.y = ground_truth_transform.q[1]
+        ground_truth_msg.transform.rotation.z = ground_truth_transform.q[2]
+        ground_truth_msg.transform.rotation.w = ground_truth_transform.q[3]
+        
+        self.ground_truth_pub.publish (ground_truth_msg)
+
 
     def publish (self, pcl: torch.Tensor):
         pclMsg = PointCloud2 ()
@@ -80,11 +106,12 @@ class SynthPclNode:
         self.pcl_pub.publish (pclMsg)
 
     def spin (self):
-        rospy.sleep (1)
-        for i in range(1):
+        rospy.sleep (3)
+        for i in range(10):
             self.create_pcl ()
+            self.send_ground_truth(False)
             self.send_pcl (False)
-            rospy.sleep (0.5)
+            self.send_ground_truth(False)
             self.send_pcl (True)
         # rospy.spin ()
 
