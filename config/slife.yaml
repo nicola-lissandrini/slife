@@ -8,7 +8,7 @@ slife:
     ground_truth: /vicon/depth_camera/depth_camera
     debug_grid: /slife/debug/grid
     debug_1: /slife/debug/history
-    debug_2: /slife/debug/debug_2
+    debug_2: /slife/debug/ground_truth_error
     estimate: /slife/estimate
 
   landscape:
@@ -22,10 +22,10 @@ slife:
 
   target_optimization_group: pose # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`
   optimizer:
-    step_sizes: [0.01, 0.01] # pose [0.015, 0.015]
+    step_sizes: [0.008, 0.008] # pose [0.015, 0.015]
     norm_weights: [0, 1]
     threshold: 0.000
-    max_iterations: 30
+    max_iterations: 60
     initialization_type: identity # options: {identity, external [not implemented]}
     record_history: true  # time consuming, use only for debug
     disable: false

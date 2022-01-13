@@ -71,14 +71,13 @@ class SynthPclNode:
         return rotm.mm (pcl.transpose(0,1)).transpose(0,1) + pos
 
     def send_pcl (self, do_transform: bool):
-        print ("pcl")
         if (do_transform):
             self.pcl = self.transform (self.pcl, ground_truth)
             
         self.publish (self.pcl)
     
     def send_ground_truth (self, do_transform: bool):
-        print ("gt")
+        print ("gth ")
         ground_truth_transform = None
         if (do_transform):        
             ground_truth_transform = ground_truth
@@ -107,11 +106,12 @@ class SynthPclNode:
 
     def spin (self):
         rospy.sleep (3)
-        for i in range(10):
+        for i in range(1):
             self.create_pcl ()
             self.send_ground_truth(False)
             self.send_pcl (False)
-            self.send_ground_truth(False)
+            rospy.sleep (0.1)
+            self.send_ground_truth(True)
             self.send_pcl (True)
         # rospy.spin ()
 

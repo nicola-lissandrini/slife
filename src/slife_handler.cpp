@@ -44,6 +44,7 @@ void SlifeHandler::performOptimization (const Tensor &pointcloud)
 	{
 		TargetGroup estimate = optimizer->optimize();
 		TargetGroup relativeGroundTruth = groundTruthTracker->getRelativeGroundTruth ();
+		COUTN(relativeGroundTruth);
 		auto history = optimizer->getHistory ();
 
 		tensorPublishCallback (OUTPUT_ESTIMATE, estimate.coeffs);
@@ -54,20 +55,22 @@ void SlifeHandler::performOptimization (const Tensor &pointcloud)
 
 Tensor SlifeHandler::computeHistoryError (const std::vector<TargetGroup> &historyVector, const TargetGroup &groundTruth)
 {
-	Tensor errorHistory = torch::empty ({historyVector.size (), TargetGroup::Tangent::Dim}, kFloat);
+	Tensor errorHistory = torch::empty ({(long int) historyVector.size (),(long int) TargetGroup::Tangent::Dim}, kFloat);
 	int i = 0;
 	
 	for (const TargetGroup &curr : historyVector) {
 		errorHistory[i] = (curr - groundTruth).coeffs;
+		COUTN(errorHistory);
+		COUTN(curr);
 		i++;
 	}
-	
+	COUTN(groundTruth);
 	return errorHistory;
 }
 
 Tensor SlifeHandler::historyToTensor (const std::vector<TargetGroup> &historyVector)
 {
-	Tensor historyTensor = torch::empty({historyVector.size(), TargetGroup::Dim}, kFloat);
+	Tensor historyTensor = torch::empty({(long int) historyVector.size(), TargetGroup::Dim}, kFloat);
 	int i = 0;
 
 	for (auto curr : historyVector) {
@@ -207,7 +210,7 @@ void GroundTruthTracker::updateGroundTruth (const TargetGroup &groundTruth)
 }
 
 TargetGroup GroundTruthTracker::getRelativeGroundTruth () const {
-	return groundTruths.front () * groundTruths.back ().inverse ();
+	return groundTruths.front ().inverse() * groundTruths.back ();
 }
 
 

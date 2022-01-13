@@ -65,7 +65,6 @@ void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const 
 
 void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMsg)
 {
-	QUA;
 	const int pclSize = pointcloudMsg.height * pointcloudMsg.width;
 	Tensor pointcloudTensor;
 
@@ -82,9 +81,10 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMs
 
 void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg)
 {
-	QUA;
 	Tensor groundTruthTensor;
 	transformToTensor (groundTruthTensor, groundTruthMsg);
+
+	COUTN(groundTruthTensor);
 
 	slifeHandler.updateGroundTruth (groundTruthTensor);
 }
