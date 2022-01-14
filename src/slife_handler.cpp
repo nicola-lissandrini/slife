@@ -13,6 +13,9 @@ SlifeHandler::SlifeHandler(const SlifeHandler::TensorPublisherExtra &_tensorPubl
 						   std::vector<uint8_t> ()))
 {
 	flags.addFlag ("initialized", true);
+
+	seq.pcl = -1;
+	seq.groundTruth = -1;
 }
 
 
@@ -32,18 +35,21 @@ Pose SlifeHandler::poseTensorToGroup<Pose> (const Tensor &groundTruthTensor) con
 }
 
 void SlifeHandler::updateGroundTruth (const Tensor &groundTruthTensor) {
+	seq.groundTruth++;
 	groundTruthTracker->updateGroundTruth (
 				poseTensorToGroup<TargetGroup> (groundTruthTensor));
 }
 
 void SlifeHandler::performOptimization (const Tensor &pointcloud)
 {
+	seq.pcl++;
 	optimizer->costFunction()->updatePointcloud (pointcloud);
 
 	if (optimizer->isReady())
 	{
 		TargetGroup estimate = optimizer->optimize();
 		TargetGroup relativeGroundTruth = groundTruthTracker->getRelativeGroundTruth ();
+		cout << "optimizing with seq.pcl = " << seq.pcl << "; seq.groundTruth = " << seq.groundTruth << endl;
 		COUTN(relativeGroundTruth);
 		auto history = optimizer->getHistory ();
 
@@ -60,11 +66,9 @@ Tensor SlifeHandler::computeHistoryError (const std::vector<TargetGroup> &histor
 	
 	for (const TargetGroup &curr : historyVector) {
 		errorHistory[i] = (curr - groundTruth).coeffs;
-		COUTN(errorHistory);
-		COUTN(curr);
 		i++;
 	}
-	COUTN(groundTruth);
+
 	return errorHistory;
 }
 
@@ -119,6 +123,10 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 
 bool SlifeHandler::isSyntheticPcl () const {
 	return params.syntheticPcl;
+}
+
+bool SlifeHandler::isReady() const {
+	return flags.isReady ();
 }
 
 SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlParams)
@@ -176,7 +184,7 @@ SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
 	optimizerParams->threshold = paramTensor<float> (xmlParams, "threshold");
 	optimizerParams->maxIterations = paramTensor<float> (xmlParams, "max_iterations");
 	optimizerParams->disable = paramBool (xmlParams, "disable");
-	optimizerParams->initializationType = paramEnum<PointcloudMatchOptimizer<TargetGroup>::InitializationType> (xmlParams, "initialization_type",{"identity"});
+	optimizerParams->initializationType = paramEnum<PointcloudMatchOptimizer<TargetGroup>::InitializationType> (xmlParams, "initialization_type",{"identity","last"});
 	optimizerParams->recordHistory = paramBool (xmlParams, "record_history");
 
 	return optimizerParams;
@@ -197,7 +205,7 @@ Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xm
 	return landscapeParams;
 }
 
-GroundTruthTracker::GroundTruthTracker(const GroundTruthTracker::Params &_params):
+GroundTruthTracker::GroundTruthTracker (const GroundTruthTracker::Params &_params):
 	params(_params)
 {}
 
@@ -210,6 +218,8 @@ void GroundTruthTracker::updateGroundTruth (const TargetGroup &groundTruth)
 }
 
 TargetGroup GroundTruthTracker::getRelativeGroundTruth () const {
+	COUTN(groundTruths.front ());
+	COUTN(groundTruths.back ());
 	return groundTruths.front ().inverse() * groundTruths.back ();
 }
 

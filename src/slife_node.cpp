@@ -22,6 +22,8 @@ SlifeNode::SlifeNode ():
 {
 	initParams ();
 	initROS ();
+
+	readyFlags.addFlag ("ready_sent");
 }
 
 void SlifeNode::initParams () {
@@ -37,10 +39,28 @@ void SlifeNode::initROS () {
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
 	addPub<std_msgs::Float32MultiArray> ("debug_1", paramString(params["topics"], "debug_1"), 1);
 	addPub<std_msgs::Float32MultiArray> ("debug_2", paramString(params["topics"], "debug_2"), 1);
+
+	commandSrv = nh.advertiseService (paramString (params["topics"], "command"), &SlifeNode::commandSrvCallback, this);
 }
 
 int SlifeNode::actions ()  {
 	return slifeHandler.synchronousActions();
+}
+
+bool SlifeNode::commandSrvCallback (slife::CmdRequest &request, slife::CmdResponse &response)
+{
+	CmdOpCode cmd = (CmdOpCode) request.command;
+
+	switch (cmd) {
+	case CMD_IS_READY:
+		response.response = (int64_t) slifeHandler.isReady ();
+		break;
+	default:
+		ROS_WARN ("Unrecognized command received %d", request.command);
+		return false;
+	}
+
+	return true;
 }
 
 void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor, const std::vector<uint8_t> &extraData)
@@ -81,10 +101,9 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMs
 
 void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg)
 {
+	QUA;
 	Tensor groundTruthTensor;
 	transformToTensor (groundTruthTensor, groundTruthMsg);
-
-	COUTN(groundTruthTensor);
 
 	slifeHandler.updateGroundTruth (groundTruthTensor);
 }

@@ -5,41 +5,41 @@
 		<Option title="ctests"/>
 		<Option makefile_is_custom="1"/>
 		<Option compiler="gcc"/>
-		<Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\;CMake Files\..\..\..\;CMake Files\..\..\..\..\;CMake Files\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\..\..\..\opt\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Torch\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\;CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\FindCUDA\;CMake Files\build\;"/>
+		<Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\;CMake Files\..\..\..\;CMake Files\..\..\..\..\;CMake Files\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\..\..\;CMake Files\..\..\..\..\..\..\..\..\opt\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Torch\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\;CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\FindCUDA\;CMake Files\build\;"/>
 		<Build>
 			<Target title="all">
-				<Option working_dir="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build"/>
+				<Option working_dir="/home/nicola/ros/tum_ws/src/slife/src/ctests/build"/>
 				<Option type="4"/>
 				<MakeCommands>
-					<Build command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 all"/>
-					<CompileFile command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
-					<Clean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
-					<DistClean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
+					<Build command="/usr/bin/ninja -v all"/>
+					<CompileFile command="/usr/bin/ninja -v &quot;$file&quot;"/>
+					<Clean command="/usr/bin/ninja -v clean"/>
+					<DistClean command="/usr/bin/ninja -v clean"/>
 				</MakeCommands>
 			</Target>
 			<Target title="rebuild_cache">
-				<Option working_dir="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build"/>
+				<Option working_dir="/home/nicola/ros/tum_ws/src/slife/src/ctests/build"/>
 				<Option type="4"/>
 				<MakeCommands>
-					<Build command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
-					<CompileFile command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
-					<Clean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
-					<DistClean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
+					<Build command="/usr/bin/ninja -v rebuild_cache"/>
+					<CompileFile command="/usr/bin/ninja -v &quot;$file&quot;"/>
+					<Clean command="/usr/bin/ninja -v clean"/>
+					<DistClean command="/usr/bin/ninja -v clean"/>
 				</MakeCommands>
 			</Target>
 			<Target title="edit_cache">
-				<Option working_dir="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build"/>
+				<Option working_dir="/home/nicola/ros/tum_ws/src/slife/src/ctests/build"/>
 				<Option type="4"/>
 				<MakeCommands>
-					<Build command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 edit_cache"/>
-					<CompileFile command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
-					<Clean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
-					<DistClean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
+					<Build command="/usr/bin/ninja -v edit_cache"/>
+					<CompileFile command="/usr/bin/ninja -v &quot;$file&quot;"/>
+					<Clean command="/usr/bin/ninja -v clean"/>
+					<DistClean command="/usr/bin/ninja -v clean"/>
 				</MakeCommands>
 			</Target>
 			<Target title="test_lietorch">
-				<Option output="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/test_lietorch" prefix_auto="0" extension_auto="0"/>
-				<Option working_dir="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build"/>
+				<Option output="/home/nicola/ros/tum_ws/src/slife/src/ctests/build/test_lietorch" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/nicola/ros/tum_ws/src/slife/src/ctests/build"/>
 				<Option object_output="./"/>
 				<Option type="1"/>
 				<Option compiler="gcc"/>
@@ -49,24 +49,31 @@
 					<Add option="-DUSE_RPC"/>
 					<Add option="-DUSE_TENSORPIPE"/>
 					<Add option="-DUSE_C10D_NCCL"/>
-					<Add directory="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/include"/>
-					<Add directory="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../include"/>
+					<Add directory="/home/nicola/ros/tum_ws/src/slife/src/ctests/include"/>
+					<Add directory="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../include"/>
 					<Add directory="/usr/include/eigen3"/>
 					<Add directory="/opt/ros/noetic/include"/>
 					<Add directory="/opt/libtorch/include"/>
 					<Add directory="/opt/libtorch/include/torch/csrc/api/include"/>
-					<Add directory="/usr/local/cuda-11.5/include"/>
+					<Add directory="/usr/local/cuda/include"/>
+					<Add directory="/usr/include/c++/10"/>
+					<Add directory="/usr/include/x86_64-linux-gnu/c++/10"/>
+					<Add directory="/usr/include/c++/10/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/10/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/include/x86_64-linux-gnu"/>
+					<Add directory="/usr/include"/>
 				</Compiler>
 				<MakeCommands>
-					<Build command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 test_lietorch"/>
-					<CompileFile command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
-					<Clean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
-					<DistClean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
+					<Build command="/usr/bin/ninja -v test_lietorch"/>
+					<CompileFile command="/usr/bin/ninja -v &quot;$file&quot;"/>
+					<Clean command="/usr/bin/ninja -v clean"/>
+					<DistClean command="/usr/bin/ninja -v clean"/>
 				</MakeCommands>
 			</Target>
 			<Target title="test_lietorch/fast">
-				<Option output="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/test_lietorch" prefix_auto="0" extension_auto="0"/>
-				<Option working_dir="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build"/>
+				<Option output="/home/nicola/ros/tum_ws/src/slife/src/ctests/build/test_lietorch" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/nicola/ros/tum_ws/src/slife/src/ctests/build"/>
 				<Option object_output="./"/>
 				<Option type="1"/>
 				<Option compiler="gcc"/>
@@ -76,86 +83,93 @@
 					<Add option="-DUSE_RPC"/>
 					<Add option="-DUSE_TENSORPIPE"/>
 					<Add option="-DUSE_C10D_NCCL"/>
-					<Add directory="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/include"/>
-					<Add directory="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../include"/>
+					<Add directory="/home/nicola/ros/tum_ws/src/slife/src/ctests/include"/>
+					<Add directory="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../include"/>
 					<Add directory="/usr/include/eigen3"/>
 					<Add directory="/opt/ros/noetic/include"/>
 					<Add directory="/opt/libtorch/include"/>
 					<Add directory="/opt/libtorch/include/torch/csrc/api/include"/>
-					<Add directory="/usr/local/cuda-11.5/include"/>
+					<Add directory="/usr/local/cuda/include"/>
+					<Add directory="/usr/include/c++/10"/>
+					<Add directory="/usr/include/x86_64-linux-gnu/c++/10"/>
+					<Add directory="/usr/include/c++/10/backward"/>
+					<Add directory="/usr/lib/gcc/x86_64-linux-gnu/10/include"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="/usr/include/x86_64-linux-gnu"/>
+					<Add directory="/usr/include"/>
 				</Compiler>
 				<MakeCommands>
-					<Build command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 test_lietorch/fast"/>
-					<CompileFile command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
-					<Clean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
-					<DistClean command="/usr/bin/make -f &quot;/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/Makefile&quot;  VERBOSE=1 clean"/>
+					<Build command="/usr/bin/ninja -v test_lietorch/fast"/>
+					<CompileFile command="/usr/bin/ninja -v &quot;$file&quot;"/>
+					<Clean command="/usr/bin/ninja -v clean"/>
+					<DistClean command="/usr/bin/ninja -v clean"/>
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/test_queue.cpp">
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/test_idxes2.cpp">
 			<Option target="test_lietorch"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/CMakeLists.txt">
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/CMakeLists.txt">
 			<Option virtualFolder="CMake Files\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Torch/TorchConfig.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Torch\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Torch/TorchConfig.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Torch\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Torch/TorchConfigVersion.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Torch\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Torch/TorchConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Torch\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Caffe2Config.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Caffe2Config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Caffe2ConfigVersion.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Caffe2ConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Caffe2Targets-release.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Caffe2Targets-release.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Caffe2Targets.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Caffe2Targets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/cuda.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/cuda.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/mkl.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/mkl.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/mkldnn.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/mkldnn.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/threads.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/threads.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/utils.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/public/utils.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\public\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/FindCUDA.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/FindCUDA.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/FindCUDNN.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/FindCUDNN.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/CMakeInitializeConfigs.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/CMakeInitializeConfigs.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/FindCUDA.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/FindCUDA.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/FindPackageHandleStandardArgs.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/FindPackageHandleStandardArgs.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/FindPackageMessage.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/FindPackageMessage.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/../../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/FindCUDA/select_compute_arch.cmake">
-			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\FindCUDA\"/>
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/../../../../../../../../opt/libtorch/share/cmake/Caffe2/Modules_CUDA_fix/upstream/FindCUDA/select_compute_arch.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\..\..\..\opt\libtorch\share\cmake\Caffe2\Modules_CUDA_fix\upstream\FindCUDA\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/detect_cuda_compute_capabilities.cu">
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/build/detect_cuda_compute_capabilities.cpp">
 			<Option virtualFolder="CMake Files\build\"/>
 		</Unit>
-		<Unit filename="/home/nicola/Dropbox/ros/tum_ws/src/slife/src/ctests/build/detect_cuda_version.cc">
+		<Unit filename="/home/nicola/ros/tum_ws/src/slife/src/ctests/build/detect_cuda_version.cc">
 			<Option virtualFolder="CMake Files\build\"/>
 		</Unit>
 	</Project>

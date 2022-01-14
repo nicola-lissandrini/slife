@@ -20,5 +20,5 @@ include_directories(
 	/opt/ros/noetic/include
 )
 
-add_executable(test_lietorch test_queue.cpp)
+add_executable(test_lietorch test_idxes2.cpp)
 target_link_libraries (test_lietorch ${TORCH_LIBRARIES} ${PCL_LIBRARIES})

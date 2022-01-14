@@ -30,6 +30,7 @@ class DisplayHistoryNode:
     def process_data (self, tensor):
         error_t = tensor[:,0:3]
         error_q = tensor[:,3:]
+        print (tensor.shape)
         return error_t, error_q
 
     def draw (self):
@@ -41,8 +42,9 @@ class DisplayHistoryNode:
         error_t, error_q = self.process_data (self.tensor)
         
         #plt.scatter (self.tensor[:,0], self.tensor[:,1])
-        #plt.plot(error_t, label="translation")
-        plt.plot(error_q, label="rotation")
+        plt.clf()
+        plt.plot(error_t, label="translation")
+        #plt.plot(error_q, label="rotation")
         plt.xlabel ("# iterations")
         plt.ylabel ("error norm (chordal metrics)")
         plt.legend ()

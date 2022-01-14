@@ -43,7 +43,9 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::getInitialValue()
 {
 	switch (params.initializationType) {
 	case INITIALIZATION_IDENTITY:
-		return LieGroup ();
+		return initializations.identity;
+	case INITIALIZATION_LAST:
+		return initializations.lastResult;
 	default:
 		assert (false && "Initialization not supported");
 	}
@@ -69,11 +71,13 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 	int iterations = 0;
 	double taken, totalTaken = 0;
 
+	history.clear ();
+
 	while (!terminationCondition) {
 		if (params.recordHistory)
 			history.push_back(state);
 
-		PROFILE(taken, [&]{
+		PROFILE_N_EN(taken, [&]{
 			auto gradient = costFunction()->gradient (state);
 			/*COUTN(gradient.coeffs.norm());
 			COUTN((params.stepSizes / gradient.coeffs.norm().sqrt()))*/
@@ -87,9 +91,12 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 
 			iterations++;
 
-		});
+		}, 1, false);
 		totalTaken += taken;
 	}
+
+	initializations.lastResult = state;
+
 	COUTN(state);
 	cout << "total taken: " << totalTaken << "ms avg. " << (totalTaken / double (iterations)) << "ms"<< endl;
 	cout << "Possible target Hz " << 1000/totalTaken << endl;

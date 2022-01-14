@@ -108,9 +108,7 @@ public:
 
 	void setPointcloud (const Pointcloud &_pointcloud);
 	void shuffleBatchIndexes ();
-	Tensor getBatchIndexes () const {
-		return batchIndexes;
-	}
+	Tensor getBatchIndexes () const;
 	Pointcloud getPointcloud () const;
 
 	Tensor value (const Tensor &p);

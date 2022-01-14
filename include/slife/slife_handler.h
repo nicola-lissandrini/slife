@@ -71,6 +71,10 @@ private:
 	GroundTruthTracker::Ptr groundTruthTracker;
 	TensorPublisher tensorPublishCallback;
 	TensorPublisherExtra tensorPublishExtraCallback;
+	struct {
+		int pcl;
+		int groundTruth;
+	} seq;
 
 	Tensor computeHistoryError (const std::vector<TargetGroup> &historyVector, const TargetGroup &groundTruth);
 	Tensor historyToTensor (const std::vector<TargetGroup> &historyVector);
@@ -91,7 +95,9 @@ public:
 	void init (XmlRpc::XmlRpcValue &xmlParams);
 	void performOptimization (const torch::Tensor &pointcloud);
 	void updateGroundTruth (const torch::Tensor &groundTruthTensor);
+
 	bool isSyntheticPcl() const;
+	bool isReady () const;
 
 	int synchronousActions ();
 

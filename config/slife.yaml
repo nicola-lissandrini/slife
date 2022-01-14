@@ -1,6 +1,6 @@
 slife:
   rate: 1 # rate of asynchronous actions
-  synthetic_pcl: true # pcl from depth camera ? false : true;
+  synthetic_pcl: false # pcl from depth camera ? false : true;
   ground_truth_queue_length: 2
 
   topics:
@@ -10,12 +10,13 @@ slife:
     debug_1: /slife/debug/history
     debug_2: /slife/debug/ground_truth_error
     estimate: /slife/estimate
+    command: /slife/cmd
 
   landscape:
     measure_radius: 0.7
     smooth_radius: 0.001
     precision: 10           # number of particles in the montecarlo estimate
-    decimation: 1           # pointcloud elements decimatino factor
+    decimation: 100           # pointcloud elements decimation factor
     maximum_distance: 200   # remove points from pcl farther than maximum_distance 
     batch_size: 20         # number of points randomly draw from pcl used for landscape generation
     stochastic: true
@@ -23,10 +24,10 @@ slife:
   target_optimization_group: pose # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`
   optimizer:
     step_sizes: [0.008, 0.008] # pose [0.015, 0.015]
-    norm_weights: [0, 1]
+    norm_weights: [1, 1]
     threshold: 0.000
     max_iterations: 60
-    initialization_type: identity # options: {identity, external [not implemented]}
+    initialization_type: identity # options: {identity, last, external [not implemented]}
     record_history: true  # time consuming, use only for debug
     disable: false
     cost:
