@@ -113,7 +113,8 @@ class Optimizer
 
 public:
 	enum InitializationType {
-		INITIALIZATION_IDENTITY = 0
+		INITIALIZATION_IDENTITY = 0,
+		INITIALIZATION_LAST
 	};
 	struct Params {
 		torch::Tensor stepSizes;
@@ -131,6 +132,10 @@ private:
 	Params params;
 	typename TargetCostFunction::Ptr costFunctionPtr;
 	std::vector<LieGroup> history;
+	struct {
+		LieGroup identity;
+		LieGroup lastResult;
+	} initializations;
 
 	LieGroup getInitialValue ();
 

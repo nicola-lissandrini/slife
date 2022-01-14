@@ -13,6 +13,28 @@
 
 using TargetGroup = lietorch::Pose;
 
+class GroundTruthTracker
+{
+public:
+	struct Params {
+		int queueLength;
+
+		DEF_SHARED(Params)
+	};
+
+private:
+	std::queue<TargetGroup> groundTruths;
+	Params params;
+
+public:
+	GroundTruthTracker (const Params &_params);
+
+	void updateGroundTruth (const TargetGroup &groundTruth);
+	TargetGroup getRelativeGroundTruth () const;
+
+	DEF_SHARED(GroundTruthTracker)
+};
+
 class SlifeHandler
 {
 public:
@@ -35,17 +57,29 @@ private:
 	struct Params {
 		bool syntheticPcl;
 		TargetOptimizationGroup targetOptimizationGroup;
+		GroundTruthTracker::Params groundTruthTracker;
+
 		DEF_SHARED (Params)
 	};
 	
+	using TensorPublisherExtra = std::function<void (OutputTensorType, const torch::Tensor &, const std::vector<uint8_t> &extraData)>;
 	using TensorPublisher = std::function<void (OutputTensorType, const torch::Tensor &)>;
 
 	Params params;
 	ReadyFlags<std::string> flags;
 	typename PointcloudMatchOptimizer<TargetGroup>::Ptr optimizer;
+	GroundTruthTracker::Ptr groundTruthTracker;
 	TensorPublisher tensorPublishCallback;
+	TensorPublisherExtra tensorPublishExtraCallback;
+	struct {
+		int pcl;
+		int groundTruth;
+	} seq;
 
+	Tensor computeHistoryError (const std::vector<TargetGroup> &historyVector, const TargetGroup &groundTruth);
 	Tensor historyToTensor (const std::vector<TargetGroup> &historyVector);
+	template<class LieGroup>
+	LieGroup poseTensorToGroup (const torch::Tensor &poseTensor) const;
 
 	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
 	typename PointcloudMatch<TargetGroup>::Params::Ptr getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams);
@@ -56,11 +90,14 @@ private:
 	void test ();
 
 public:
-	SlifeHandler(const TensorPublisher &_tensorPublisher);
+	SlifeHandler(const TensorPublisherExtra &_tensorPublisher);
 
 	void init (XmlRpc::XmlRpcValue &xmlParams);
-	void updatePointcloud (const torch::Tensor &pointcloud);
+	void performOptimization (const torch::Tensor &pointcloud);
+	void updateGroundTruth (const torch::Tensor &groundTruthTensor);
+
 	bool isSyntheticPcl() const;
+	bool isReady () const;
 
 	int synchronousActions ();
 

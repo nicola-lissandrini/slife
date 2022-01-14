@@ -1,27 +1,10 @@
 #include "slife/slife_node.h"
-#include "sparcsnode/multi_array_manager.h"
+#include "../../sparcsnode/include/sparcsnode/multi_array_manager.h"
 
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
 
 #include <eigen3/Eigen/Core>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/conversions.h>
-#include <pcl_ros/transforms.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_types.h>
-#include <pcl/PCLPointCloud2.h>
-#include <pcl/conversions.h>
-#include <pcl_ros/transforms.h>
-#include <pcl/range_image/range_image.h>
-#include <pcl/filters/approximate_voxel_grid.h>
-#include <pcl/features/range_image_border_extractor.h>
-#include <pcl/keypoints/narf_keypoint.h>
-#include <pcl/io/pcd_io.h>
-
-#include <manif/SE2.h>
 
 using namespace ros;
 using namespace std;
@@ -32,14 +15,15 @@ Test::Ptr tester;
 
 SlifeNode::SlifeNode ():
 	SparcsNode(NODE_NAME),
-	slifeHandler(std::bind (
-				   &SlifeNode::publishTensor,
-				   this,
-				   std::placeholders::_1,
-				   std::placeholders::_2))
+	slifeHandler([this](SlifeHandler::OutputTensorType outputType,
+					const torch::Tensor &tensor,
+					const std::vector<uint8_t> &extraData)
+			   { return publishTensor (outputType, tensor, extraData);})
 {
 	initParams ();
 	initROS ();
+
+	readyFlags.addFlag ("ready_sent");
 }
 
 void SlifeNode::initParams () {
@@ -49,17 +33,37 @@ void SlifeNode::initParams () {
 
 void SlifeNode::initROS () {
 	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2, &SlifeNode::pointcloudCallback);
+	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 2, &SlifeNode::groundTruthCallback);
+
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
 	addPub<std_msgs::Float32MultiArray> ("debug_1", paramString(params["topics"], "debug_1"), 1);
 	addPub<std_msgs::Float32MultiArray> ("debug_2", paramString(params["topics"], "debug_2"), 1);
+
+	commandSrv = nh.advertiseService (paramString (params["topics"], "command"), &SlifeNode::commandSrvCallback, this);
 }
 
 int SlifeNode::actions ()  {
 	return slifeHandler.synchronousActions();
 }
 
-void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor)
+bool SlifeNode::commandSrvCallback (slife::CmdRequest &request, slife::CmdResponse &response)
+{
+	CmdOpCode cmd = (CmdOpCode) request.command;
+
+	switch (cmd) {
+	case CMD_IS_READY:
+		response.response = (int64_t) slifeHandler.isReady ();
+		break;
+	default:
+		ROS_WARN ("Unrecognized command received %d", request.command);
+		return false;
+	}
+
+	return true;
+}
+
+void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor, const std::vector<uint8_t> &extraData)
 {
 	MultiArray32Manager array(vector<int> (tensor.sizes().begin(), tensor.sizes().end()));
 	
@@ -79,25 +83,40 @@ void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const 
 	}
 }
 
-// WARNING: takes 5-10ms
-void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloud)
+void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMsg)
 {
-	const int pclSize = pointcloud.height * pointcloud.width;
-	double taken;
-	torch::Tensor pointcloudTensor;
+	const int pclSize = pointcloudMsg.height * pointcloudMsg.width;
+	Tensor pointcloudTensor;
 
 	if (slifeHandler.isSyntheticPcl ()) {
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 3}, // put this back for real pcl -> {pclSize, 4},
+		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 3},
 									  torch::TensorOptions().dtype(torch::kFloat32));
 	} else {
-		pointcloudTensor = torch::from_blob ((void *) pointcloud.data.data(), {pclSize, 4},
+		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 4},
 									  torch::TensorOptions().dtype (torch::kFloat32))
 					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
 	}
+	slifeHandler.performOptimization(pointcloudTensor);
+}
 
-	COUTN (pointcloudTensor.size(0));
+void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg)
+{
+	QUA;
+	Tensor groundTruthTensor;
+	transformToTensor (groundTruthTensor, groundTruthMsg);
 
-	slifeHandler.updatePointcloud(pointcloudTensor);
+	slifeHandler.updateGroundTruth (groundTruthTensor);
+}
+
+void transformToTensor (Tensor &out, const geometry_msgs::TransformStamped &transformMsg)
+{
+	out = torch::tensor ({transformMsg.transform.translation.x,
+					  transformMsg.transform.translation.y,
+					  transformMsg.transform.translation.z,
+					  transformMsg.transform.rotation.x,
+					  transformMsg.transform.rotation.y,
+					  transformMsg.transform.rotation.z,
+					  transformMsg.transform.rotation.w}, kFloat);
 }
 
 Tensor Test::getTestGrid() const {
@@ -163,8 +182,8 @@ Test::Test (XmlRpc::XmlRpcValue &xmlParams,
 int main (int argc, char *argv[])
 {
 	init (argc, argv, NODE_NAME);
-	
+
 	SlifeNode sn;
-	
+
 	return sn.spin ();
 }

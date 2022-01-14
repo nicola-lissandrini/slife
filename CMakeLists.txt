@@ -13,12 +13,19 @@ find_package(catkin REQUIRED COMPONENTS
 
 set(EIGEN3_INCLUDE_DIR /usr/include/eigen3)
 set(Torch_DIR "/opt/libtorch/share/cmake/Torch")
-set(USE_CUDA 0)
 
 find_package (Torch REQUIRED)
 
 find_package(PCL REQUIRED)
 
+add_service_files (
+	FILES
+	Cmd.srv
+)
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+)
 catkin_package (
 	INCLUDE_DIRS include ${TORCH_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS}
 	LIBRARIES sparcsnode

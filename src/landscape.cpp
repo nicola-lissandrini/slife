@@ -30,15 +30,11 @@ Landscape::Landscape (const Params &_params):
 
 void Landscape::setPointcloud (const Pointcloud &_pointcloud)
 {
-	Tensor decimated, selected;
-	Tensor validIdxes;
+	Tensor decimated;
 
 	decimated = _pointcloud.slice (0, 0, nullopt, params.decimation);
 
-	validIdxes = torch::isfinite (decimated).sum (1)/*.logical_and (decimated.norm(2,1) < params.maximumDistance)*/.nonzero ();
-	selected = decimated.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
-
-	pointcloud = selected;
+	pointcloud = decimated;
 	flags.set ("pointcloud_set");
 }
 
@@ -70,8 +66,35 @@ Pointcloud Landscape::getPointcloud() const {
 	return pointcloud;
 }
 
-void Landscape::shuffleBatchIndexes () {
+void Landscape::shuffleBatchIndexes ()
+{
+	int left = params.batchSize;
+	int used = 0;
+	Tensor permutation = torch::randperm (pointcloud.size(0));
+	batchIndexes = torch::empty ({0}, kLong);
+	while (left > 0) {
+		Tensor selectedPermutation = permutation.slice (0, used, used + left);
+		Tensor selectedPointcloud = pointcloud.index ({selectedPermutation, Ellipsis});
+		Tensor currentValidIdxes = selectedPermutation.index ({selectedPointcloud.isfinite ().sum(1) > 0});
+		batchIndexes = torch::cat ({batchIndexes, currentValidIdxes});
+
+		used += left;
+		left = params.batchSize - batchIndexes.size(0);
+	}
+}
+
+/** OLD VERSION
+void Landscape::shuffleBatchIndexes ()
+{
+	validIdxes = torch::isfinite (decimated).sum (1).nonzero ();
+	selected = decimated.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
+
 	batchIndexes = torch::randperm (pointcloud.size(0)).slice (0,0,params.batchSize);
+}
+**/
+
+Tensor Landscape::getBatchIndexes() const {
+	return batchIndexes;
 }
 
 Tensor Landscape::getPointcloudBatch() const
