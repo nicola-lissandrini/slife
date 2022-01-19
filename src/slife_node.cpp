@@ -1,17 +1,20 @@
 #include "slife/slife_node.h"
 #include "../../sparcsnode/include/sparcsnode/multi_array_manager.h"
+#include <boost/date_time/posix_time/conversion.hpp>
 
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
 
-#include <eigen3/Eigen/Core>
-
 using namespace ros;
 using namespace std;
 using namespace torch;
-using namespace Eigen;
+
 
 Test::Ptr tester;
+
+chrono::time_point<chrono::system_clock> rosTimeToStd (const ros::Time &rosTime) {
+	return chrono::time_point<chrono::system_clock> () + chrono::nanoseconds(rosTime.toNSec ());
+}
 
 SlifeNode::SlifeNode ():
 	SparcsNode(NODE_NAME),
@@ -87,6 +90,7 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMs
 {
 	const int pclSize = pointcloudMsg.height * pointcloudMsg.width;
 	Tensor pointcloudTensor;
+	Timed<Tensor> timedPointcloud;
 
 	if (slifeHandler.isSyntheticPcl ()) {
 		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 3},
@@ -96,16 +100,21 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMs
 									  torch::TensorOptions().dtype (torch::kFloat32))
 					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
 	}
-	slifeHandler.performOptimization(pointcloudTensor);
+	
+	timedPointcloud.obj () = pointcloudTensor;
+
+	timedPointcloud.time () = rosTimeToStd (pointcloudMsg.header.stamp);
+
+	slifeHandler.updatePointcloud(timedPointcloud);
 }
 
 void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg)
 {
-	QUA;
-	Tensor groundTruthTensor;
-	transformToTensor (groundTruthTensor, groundTruthMsg);
+	Timed<Tensor> timedGroundTruthTensor;
+	transformToTensor (timedGroundTruthTensor.obj (), groundTruthMsg);
+	timedGroundTruthTensor.time () = rosTimeToStd (groundTruthMsg.header.stamp);
 
-	slifeHandler.updateGroundTruth (groundTruthTensor);
+	slifeHandler.updateGroundTruth (timedGroundTruthTensor);
 }
 
 void transformToTensor (Tensor &out, const geometry_msgs::TransformStamped &transformMsg)
@@ -179,8 +188,14 @@ Test::Test (XmlRpc::XmlRpcValue &xmlParams,
 	initTestGrid ();
 }
 
+void handler(int sig)  {
+	STACKTRACE;
+	exit(-1);
+}
+
 int main (int argc, char *argv[])
 {
+	signal(SIGSEGV, handler);
 	init (argc, argv, NODE_NAME);
 
 	SlifeNode sn;

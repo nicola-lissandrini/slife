@@ -1,4 +1,5 @@
 #include "slife/slife_handler.h"
+#include "lietorch/algorithms.h"
 #include <functional>
 
 using namespace std;
@@ -13,9 +14,6 @@ SlifeHandler::SlifeHandler(const SlifeHandler::TensorPublisherExtra &_tensorPubl
 						   std::vector<uint8_t> ()))
 {
 	flags.addFlag ("initialized", true);
-
-	seq.pcl = -1;
-	seq.groundTruth = -1;
 }
 
 
@@ -34,23 +32,27 @@ Pose SlifeHandler::poseTensorToGroup<Pose> (const Tensor &groundTruthTensor) con
 	return Pose (groundTruthTensor);
 }
 
-void SlifeHandler::updateGroundTruth (const Tensor &groundTruthTensor) {
-	seq.groundTruth++;
-	groundTruthTracker->updateGroundTruth (
-				poseTensorToGroup<TargetGroup> (groundTruthTensor));
+void SlifeHandler::updateGroundTruth (const Timed<Tensor> &timedGroundTruthTensor)
+{
+	Timed<TargetGroup> timedGroundTruth(timedGroundTruthTensor.time(),
+								 poseTensorToGroup<TargetGroup> (timedGroundTruthTensor.obj()));
+	groundTruthSync->updateGroundTruth (timedGroundTruth);
 }
 
-void SlifeHandler::performOptimization (const Tensor &pointcloud)
+void SlifeHandler::updatePointcloud (const Timed<Tensor> &timedPointcloud)
 {
-	seq.pcl++;
-	optimizer->costFunction()->updatePointcloud (pointcloud);
+	if (!groundTruthSync->groundTruthReady ())
+		// Skip the first pointcloud if no ground truth received
+		return;
 
-	if (optimizer->isReady())
+	groundTruthSync->addSynchronizationMarker (timedPointcloud.time ());
+	COUT("up una volta")
+	optimizer->costFunction()->updatePointcloud (timedPointcloud.obj ());
+
+	if (optimizer->isReady() && groundTruthSync->markersReady ())
 	{
 		TargetGroup estimate = optimizer->optimize();
-		TargetGroup relativeGroundTruth = groundTruthTracker->getRelativeGroundTruth ();
-		cout << "optimizing with seq.pcl = " << seq.pcl << "; seq.groundTruth = " << seq.groundTruth << endl;
-		COUTN(relativeGroundTruth);
+		TargetGroup relativeGroundTruth = groundTruthSync->getRelativeGroundTruth ();
 		auto history = optimizer->getHistory ();
 
 		tensorPublishCallback (OUTPUT_ESTIMATE, estimate.coeffs);
@@ -116,7 +118,7 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 	optimizer = make_shared<PointcloudMatchOptimizer<TargetGroup>> (optimizerParams,
 													    make_shared<PointcloudMatch<TargetGroup>> (landscapeParams,
 																						  costFunctionParams));
-	groundTruthTracker = make_shared<GroundTruthTracker> (params.groundTruthTracker);
+	groundTruthSync = make_shared<GroundTruthSync> (params.groundTruthTracker);
 
 	flags.set ("initialized");
 }
@@ -205,24 +207,79 @@ Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xm
 	return landscapeParams;
 }
 
-GroundTruthTracker::GroundTruthTracker (const GroundTruthTracker::Params &_params):
+GroundTruthSync::GroundTruthSync (const GroundTruthSync::Params &_params):
 	params(_params)
 {}
 
-void GroundTruthTracker::updateGroundTruth (const TargetGroup &groundTruth)
+void GroundTruthSync::updateGroundTruth (const Timed<TargetGroup> &groundTruth)
 {
-	groundTruths.push (groundTruth);
+	groundTruths.push_back (groundTruth);
 
 	if (groundTruths.size () > params.queueLength)
-		groundTruths.pop ();
+		groundTruths.pop_front ();
 }
 
-TargetGroup GroundTruthTracker::getRelativeGroundTruth () const {
-	COUTN(groundTruths.front ());
-	COUTN(groundTruths.back ());
-	return groundTruths.front ().inverse() * groundTruths.back ();
+
+void GroundTruthSync::addSynchronizationMarker (const Time &otherTime)
+{
+	GroundTruthBatch::iterator closest;
+	Timed<MarkerMatch> newMarker;
+
+	newMarker.time () = otherTime;
+
+	if (otherTime < groundTruths.front ().time ()) {
+		ROS_WARN_STREAM ("Ground truth matching the supplied timestamp has expired by " <<
+					   (chrono::duration<float, std::milli> (groundTruths.front ().time () - otherTime)).count() << "ms.\n"
+					   "Using last ground truth stored, probabily outdated.\n"
+					   "Consider increasing 'ground_truth_queue_length' to avoid this issue");
+		closest = groundTruths.begin ();
+	} else
+		closest = findClosest (otherTime);
+
+	if (next (closest) == groundTruths.end ())
+		newMarker.obj () = make_pair (*prev (closest), *closest);
+	else
+		newMarker.obj () = make_pair (*closest, *next (closest));
+
+	markerMatches.push (newMarker);
+
+	if (markerMatches.size () > 2)
+		markerMatches.pop ();
 }
 
+GroundTruthSync::GroundTruthBatch::iterator GroundTruthSync::findClosest (const Time &otherTime)
+{
+	auto it = std::lower_bound (groundTruths.begin (), groundTruths.end (), otherTime, [] (GroundTruthBatch::const_reference gt, decltype(otherTime) ot){ return gt.time () < ot; });
+
+	if (it == groundTruths.end ())
+		return prev (it);
+
+	return it;
+}
+
+TargetGroup GroundTruthSync::getMatchingGroundTruth (const Timed<MarkerMatch> &marker) const
+{
+	GroundTruth before = marker.obj ().first;
+	GroundTruth after = marker.obj ().second;
+
+	return extrapolate (before.obj (), after.obj (),
+					before.time (), after.time (), marker.time ());
+}
+
+TargetGroup GroundTruthSync::getRelativeGroundTruth () const {
+	TargetGroup first = getMatchingGroundTruth (markerMatches.front ());
+	TargetGroup last  = getMatchingGroundTruth (markerMatches.back ());
+
+	return first.inverse() * last;
+}
+
+bool GroundTruthSync::markersReady() const {
+	return markerMatches.size () == 2;
+}
+
+bool GroundTruthSync::groundTruthReady () const {
+	return groundTruths.size () > 1;
+}
 
 
 

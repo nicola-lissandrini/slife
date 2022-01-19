@@ -55,6 +55,7 @@ public:
 	Derived &operator = (const Tangent &t);
 	Derived &operator = (const torch::detail::TensorDataContainer &coeffsList);
 	Derived operator * (const DataType &other) const;
+	Derived operator * (float scalar) const;
 	Derived operator + (const Derived &other) const;
 	Derived operator - (const Derived &other) const;
 	Derived &operator += (const Derived &other);
@@ -120,6 +121,11 @@ Tangent<Derived>::norm () const {
 template<class Derived>
 Derived Tangent<Derived>::operator * (const DataType &other) const {
 	return scale (other);
+}
+
+template<class Derived>
+Derived Tangent<Derived>::operator * (float scalar) const {
+	return Derived (coeffs * scalar);
 }
 
 template<class Derived>

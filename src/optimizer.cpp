@@ -117,12 +117,15 @@ PointcloudMatch<LieGroup>::PointcloudMatch (const Landscape::Params::Ptr &landsc
 }
 
 template<class LieGroup>
-Pointcloud PointcloudMatch<LieGroup>::oldPointcloudBatch (const Tensor &batchIndexes) const
+Pointcloud PointcloudMatch<LieGroup>::oldPointcloudBatch () const
 {
 	if (!params().stochastic)
 		return oldPcl;
 
-	return oldPcl.index ({landscape.getBatchIndexes (), Ellipsis});
+	Tensor oldBatchNan = oldPcl.index ({landscape.getBatchIndexes (), Ellipsis});
+	COUTN(oldBatchNan);
+	COUTN(oldBatchNan.isfinite ().sum(1));
+	return oldBatchNan.index ({oldBatchNan.isfinite ().sum(1)}).view ({-1, 3});
 }
 
 template<class LieGroup>
@@ -135,7 +138,9 @@ PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 	//autograd::profiler::RecordProfile rp("/home/nicola/new.trace");
 
 	landscape.shuffleBatchIndexes ();
-	predicted = x * oldPointcloudBatch (landscape.getBatchIndexes ());
+	Tensor old = oldPointcloudBatch ();
+	COUTN(old);
+	predicted = x * old;
 
 	if (params().reshuffleBatchIndexes)
 		landscape.shuffleBatchIndexes ();
@@ -153,7 +158,7 @@ typename PointcloudMatch<LieGroup>::Vector
 PointcloudMatch<LieGroup>::value (const LieGroup &x)
 {
 	landscape.shuffleBatchIndexes ();
-	Pointcloud predicted = x * oldPointcloudBatch (landscape.getBatchIndexes ());
+	Pointcloud predicted = x * oldPointcloudBatch ();
 	Tensor totalValue = torch::zeros ({1}, kFloat);
 
 	for (int i = 0; i < predicted.size(0); i++) {

@@ -194,7 +194,7 @@ template<typename Derived>
 Derived &LieGroup<Derived>::setIdentity()
 {
 	const static Tangent zero = Tangent::Zero ();
-	COUT(TYPE(zero));
+
 	derived() = zero.exp ();
 	return derived ();
 }

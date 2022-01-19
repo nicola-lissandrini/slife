@@ -13,7 +13,10 @@
 
 using TargetGroup = lietorch::Pose;
 
-class GroundTruthTracker
+template<class T>
+using Timed = TimedClock<T, std::chrono::system_clock>;
+
+class GroundTruthSync
 {
 public:
 	struct Params {
@@ -23,16 +26,30 @@ public:
 	};
 
 private:
-	std::queue<TargetGroup> groundTruths;
+	using GroundTruth = Timed<TargetGroup>;
+	using GroundTruthBatch = std::deque<GroundTruth>;
+	using Time = std::chrono::time_point<std::chrono::system_clock>;
+	using TimeDuration = std::chrono::duration<float>;
+	using MarkerMatch = std::pair<GroundTruth, GroundTruth>;
+
+	GroundTruthBatch groundTruths;
+	// The time in the markers correspond to the pcl time
+	std::queue<Timed<MarkerMatch>> markerMatches;
+
 	Params params;
+	GroundTruthBatch::iterator findClosest(const Time &otherTime);
+	TargetGroup getMatchingGroundTruth(const Timed<MarkerMatch> &marker) const;
 
 public:
-	GroundTruthTracker (const Params &_params);
+	GroundTruthSync (const Params &_params);
 
-	void updateGroundTruth (const TargetGroup &groundTruth);
+	void updateGroundTruth (const Timed<TargetGroup> &groundTruth);
+	void addSynchronizationMarker (const Time &otherTime);
 	TargetGroup getRelativeGroundTruth () const;
+	bool markersReady () const;
+	bool groundTruthReady() const;
 
-	DEF_SHARED(GroundTruthTracker)
+	DEF_SHARED(GroundTruthSync)
 };
 
 class SlifeHandler
@@ -57,7 +74,7 @@ private:
 	struct Params {
 		bool syntheticPcl;
 		TargetOptimizationGroup targetOptimizationGroup;
-		GroundTruthTracker::Params groundTruthTracker;
+		GroundTruthSync::Params groundTruthTracker;
 
 		DEF_SHARED (Params)
 	};
@@ -68,13 +85,9 @@ private:
 	Params params;
 	ReadyFlags<std::string> flags;
 	typename PointcloudMatchOptimizer<TargetGroup>::Ptr optimizer;
-	GroundTruthTracker::Ptr groundTruthTracker;
+	GroundTruthSync::Ptr groundTruthSync;
 	TensorPublisher tensorPublishCallback;
 	TensorPublisherExtra tensorPublishExtraCallback;
-	struct {
-		int pcl;
-		int groundTruth;
-	} seq;
 
 	Tensor computeHistoryError (const std::vector<TargetGroup> &historyVector, const TargetGroup &groundTruth);
 	Tensor historyToTensor (const std::vector<TargetGroup> &historyVector);
@@ -93,8 +106,8 @@ public:
 	SlifeHandler(const TensorPublisherExtra &_tensorPublisher);
 
 	void init (XmlRpc::XmlRpcValue &xmlParams);
-	void performOptimization (const torch::Tensor &pointcloud);
-	void updateGroundTruth (const torch::Tensor &groundTruthTensor);
+	void updatePointcloud (const Timed<Tensor> &timedPointcloud);
+	void updateGroundTruth (const Timed<Tensor> &timedGroundTruthTensor);
 
 	bool isSyntheticPcl() const;
 	bool isReady () const;

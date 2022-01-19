@@ -75,7 +75,7 @@ protected:
 
 	lietorch::OpFcn sumOut;
 
-	Pointcloud oldPointcloudBatch (const Tensor &batchIndexes) const;
+	Pointcloud oldPointcloudBatch () const;
 
 	Params &params () {
 		return *std::dynamic_pointer_cast<Params> (paramsData);
