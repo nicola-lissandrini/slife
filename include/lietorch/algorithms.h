@@ -14,6 +14,7 @@ LieGroup interpolate (const LieGroup &a,
 
 	// corresponds to:
 	// a * exp(log (a^-1 * b) * t)
+	// (b - a) is an element of the tangent space
 	return a + (b - a) * t;
 }
 

@@ -63,7 +63,7 @@ bool Optimizer<LieGroup,TargetCostFunction>::isReady() const {
 }
 
 template<class LieGroup, class TargetCostFunction>
-LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
+void Optimizer<LieGroup, TargetCostFunction>::optimize ()
 {
 	LieGroup state = getInitialValue ();
 	LieGroup nextState;
@@ -95,13 +95,13 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 		totalTaken += taken;
 	}
 
+	// TODO: clean this
 	initializations.lastResult = state;
+	estimate = state;
 
 	COUTN(state);
 	cout << "total taken: " << totalTaken << "ms avg. " << (totalTaken / double (iterations)) << "ms"<< endl;
 	cout << "Possible target Hz " << 1000/totalTaken << endl;
-
-	return state;
 }
 
 template<class LieGroup>
@@ -123,9 +123,8 @@ Pointcloud PointcloudMatch<LieGroup>::oldPointcloudBatch () const
 		return oldPcl;
 
 	Tensor oldBatchNan = oldPcl.index ({landscape.getBatchIndexes (), Ellipsis});
-	COUTN(oldBatchNan);
-	COUTN(oldBatchNan.isfinite ().sum(1));
-	return oldBatchNan.index ({oldBatchNan.isfinite ().sum(1)}).view ({-1, 3});
+
+	return oldBatchNan.index ({oldBatchNan.isfinite ().sum(1).nonzero()}).view ({-1, 3});
 }
 
 template<class LieGroup>
@@ -139,7 +138,7 @@ PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 
 	landscape.shuffleBatchIndexes ();
 	Tensor old = oldPointcloudBatch ();
-	COUTN(old);
+
 	predicted = x * old;
 
 	if (params().reshuffleBatchIndexes)

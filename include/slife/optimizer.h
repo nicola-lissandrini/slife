@@ -131,6 +131,7 @@ public:
 private:
 	Params params;
 	typename TargetCostFunction::Ptr costFunctionPtr;
+	LieGroup estimate;
 	std::vector<LieGroup> history;
 	struct {
 		LieGroup identity;
@@ -146,7 +147,10 @@ public:
 		costFunctionPtr(_costFunctionPtr)
 	{}
 
-	LieGroup optimize ();
+	void optimize();
+	LieGroup getEstimate () const {
+		return estimate;
+	}
 	bool isReady () const;
 	typename TargetCostFunction::Ptr costFunction () {
 		return costFunctionPtr;

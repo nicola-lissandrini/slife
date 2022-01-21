@@ -1,21 +1,17 @@
 #include "slife/slife_handler.h"
 #include "lietorch/algorithms.h"
+#include "slife/slife_node.h"
 #include <functional>
 
 using namespace std;
 using namespace torch;
 using namespace lietorch;
 
-SlifeHandler::SlifeHandler(const SlifeHandler::TensorPublisherExtra &_tensorPublisher):
-	tensorPublishExtraCallback(_tensorPublisher),
-	tensorPublishCallback(bind (_tensorPublisher,
-						   placeholders::_1,
-						   placeholders::_2,
-						   std::vector<uint8_t> ()))
+SlifeHandler::SlifeHandler (const std::shared_ptr<OutputsManager> &_outputsManager):
+	outputsManager(_outputsManager)
 {
 	flags.addFlag ("initialized", true);
 }
-
 
 template<>
 Position SlifeHandler::poseTensorToGroup<Position> (const Tensor &grounTruthTensor) const {
@@ -46,18 +42,60 @@ void SlifeHandler::updatePointcloud (const Timed<Tensor> &timedPointcloud)
 		return;
 
 	groundTruthSync->addSynchronizationMarker (timedPointcloud.time ());
-	COUT("up una volta")
+
 	optimizer->costFunction()->updatePointcloud (timedPointcloud.obj ());
 
 	if (optimizer->isReady() && groundTruthSync->markersReady ())
 	{
-		TargetGroup estimate = optimizer->optimize();
-		TargetGroup relativeGroundTruth = groundTruthSync->getRelativeGroundTruth ();
-		auto history = optimizer->getHistory ();
+		optimizer->optimize();
 
-		tensorPublishCallback (OUTPUT_ESTIMATE, estimate.coeffs);
-		tensorPublishExtraCallback (OUTPUT_DEBUG_1, historyToTensor (history), {params.targetOptimizationGroup});
-		tensorPublishExtraCallback (OUTPUT_DEBUG_2, computeHistoryError (history, relativeGroundTruth), {params.targetOptimizationGroup});
+		outputResults ();
+	}
+}
+
+Tensor SlifeHandler::getFinalError (const TargetGroup &result, const TargetGroup &groundTruth) {
+	/*
+	Tensor percentError = 100 * (relativeGroundTruth - estimate).linear().norm ()/ relativeGroundTruth.translation ().log ().norm ();
+	cout << "\nground truth: " << relativeGroundTruth.translation () << endl;
+	cout << "estimate: " << estimate.translation () << endl;
+	cout << "percent error: " << percentError.item ().toFloat () << "%\n" << endl;
+*/
+	return (result.coeffs, groundTruth.coeffs);
+}
+
+void SlifeHandler::outputResults ()
+{
+	int i = 0;
+
+	for (const OutputType &currType : outputsManager->getOutputs ()) {
+		Tensor outputTensor;
+		vector<float> extraData;
+
+		switch (currType) {
+		case OUTPUT_ESTIMATE:
+			outputTensor = optimizer->getEstimate ().coeffs;
+			break;
+		case OUTPUT_HISTORY:
+			outputTensor = historyToTensor (optimizer->getHistory ());
+			extraData = {params.targetOptimizationGroup};
+			break;
+		case OUTPUT_ERROR_HISTORY:
+			outputTensor = computeHistoryError (optimizer->getHistory (),
+										 groundTruthSync->getRelativeGroundTruth ());
+			extraData = {params.targetOptimizationGroup};
+			break;
+		case OUTPUT_FINAL_ERROR:
+			outputTensor = getFinalError (optimizer->getEstimate (),
+									groundTruthSync->getRelativeGroundTruth ());
+			extraData = {params.targetOptimizationGroup};
+			break;
+		case OUTPUT_RELATIVE_GROUND_TRUTH:
+			outputTensor = groundTruthSync->getRelativeGroundTruth ().coeffs;
+			break;
+		}
+
+		outputsManager->publishTensor (i, outputTensor, extraData);
+		i++;
 	}
 }
 

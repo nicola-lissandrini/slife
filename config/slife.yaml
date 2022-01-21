@@ -2,13 +2,13 @@ slife:
   rate: 200 # rate of asynchronous actions
   synthetic_pcl: false # pcl from depth camera ? false : true;
   ground_truth_queue_length: 40
+  outputs: [relative_ground_truth, final_error]       # options: {history, error_history, final_error, relative_ground_truth}
 
   topics:
     pointcloud: /camera/depth/pointcloud
     ground_truth: /vicon/depth_camera/depth_camera
     debug_grid: /slife/debug/grid
-    debug_1: /slife/debug/history
-    debug_2: /slife/debug/ground_truth_error
+    output_prefix: /slife/debug
     estimate: /slife/estimate
     command: /slife/cmd
 
@@ -21,15 +21,15 @@ slife:
     batch_size: 20         # number of points randomly draw from pcl used for landscape generation
     stochastic: true
 
-  target_optimization_group: pose # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`
+  target_optimization_group: pose # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`, in slife_handler.h
   optimizer:
     step_sizes: [0.008, 0.008] # pose [0.015, 0.015]
     norm_weights: [1, 1]
     threshold: 0.000
     max_iterations: 30
     initialization_type: identity # options: {identity, last, external [not implemented]}
-    record_history: true  # time consuming, use only for debug
-    disable: false
+    record_history: true          # time consuming, use only for debug
+    disable: false                # do not perform optimization, only collect data and test
     cost:
       batch_size: 20 
       stochastic: true

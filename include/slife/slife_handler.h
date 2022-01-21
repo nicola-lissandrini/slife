@@ -52,15 +52,11 @@ public:
 	DEF_SHARED(GroundTruthSync)
 };
 
+class OutputsManager;
+
 class SlifeHandler
 {
 public:
-	enum OutputTensorType {
-		OUTPUT_ESTIMATE,
-		OUTPUT_DEBUG_1,
-		OUTPUT_DEBUG_2
-	};
-
 	enum TargetOptimizationGroup {
 		TARGET_POSITION,
 		TARGET_QUATERNION_R4,
@@ -68,6 +64,14 @@ public:
 		TARGET_POSE_R4,
 		TARGET_POSE,
 		TARGET_DUAL_QUATERNION
+	};
+
+	enum OutputType {
+		OUTPUT_ESTIMATE,
+		OUTPUT_HISTORY,
+		OUTPUT_ERROR_HISTORY,
+		OUTPUT_FINAL_ERROR,
+		OUTPUT_RELATIVE_GROUND_TRUTH
 	};
 
 private:
@@ -79,18 +83,16 @@ private:
 		DEF_SHARED (Params)
 	};
 	
-	using TensorPublisherExtra = std::function<void (OutputTensorType, const torch::Tensor &, const std::vector<uint8_t> &extraData)>;
-	using TensorPublisher = std::function<void (OutputTensorType, const torch::Tensor &)>;
-
 	Params params;
 	ReadyFlags<std::string> flags;
 	typename PointcloudMatchOptimizer<TargetGroup>::Ptr optimizer;
 	GroundTruthSync::Ptr groundTruthSync;
-	TensorPublisher tensorPublishCallback;
-	TensorPublisherExtra tensorPublishExtraCallback;
+	std::shared_ptr<OutputsManager> outputsManager;
 
+	void outputResults ();
 	Tensor computeHistoryError (const std::vector<TargetGroup> &historyVector, const TargetGroup &groundTruth);
 	Tensor historyToTensor (const std::vector<TargetGroup> &historyVector);
+	Tensor getFinalError (const TargetGroup &result, const TargetGroup &groundTruth);
 	template<class LieGroup>
 	LieGroup poseTensorToGroup (const torch::Tensor &poseTensor) const;
 
@@ -103,7 +105,7 @@ private:
 	void test ();
 
 public:
-	SlifeHandler(const TensorPublisherExtra &_tensorPublisher);
+	SlifeHandler(const std::shared_ptr<OutputsManager> &_outputsManager);
 
 	void init (XmlRpc::XmlRpcValue &xmlParams);
 	void updatePointcloud (const Timed<Tensor> &timedPointcloud);
