@@ -1,27 +1,29 @@
 #include "slife/slife_node.h"
 #include "../../sparcsnode/include/sparcsnode/multi_array_manager.h"
+#include <boost/date_time/posix_time/conversion.hpp>
 
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
 
-#include <eigen3/Eigen/Core>
-
 using namespace ros;
 using namespace std;
 using namespace torch;
-using namespace Eigen;
+
 
 Test::Ptr tester;
 
+chrono::time_point<chrono::system_clock> rosTimeToStd (const ros::Time &rosTime) {
+	return chrono::time_point<chrono::system_clock> () + chrono::nanoseconds(rosTime.toNSec ());
+}
+
 SlifeNode::SlifeNode ():
 	SparcsNode(NODE_NAME),
-	slifeHandler([this](SlifeHandler::OutputTensorType outputType,
-					const torch::Tensor &tensor,
-					const std::vector<uint8_t> &extraData)
-			   { return publishTensor (outputType, tensor, extraData);})
+	outputsManager(&nh),
+	slifeHandler(shared_ptr<OutputsManager> (&outputsManager))
 {
 	initParams ();
 	initROS ();
+	outputsManager.init (params);
 
 	readyFlags.addFlag ("ready_sent");
 }
@@ -31,14 +33,14 @@ void SlifeNode::initParams () {
 	slifeHandler.init(params);
 }
 
-void SlifeNode::initROS () {
+void SlifeNode::initROS ()
+{
 	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2, &SlifeNode::pointcloudCallback);
 	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 2, &SlifeNode::groundTruthCallback);
 
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
-	addPub<std_msgs::Float32MultiArray> ("debug_1", paramString(params["topics"], "debug_1"), 1);
-	addPub<std_msgs::Float32MultiArray> ("debug_2", paramString(params["topics"], "debug_2"), 1);
+	vector<Publisher> outputList;
 
 	commandSrv = nh.advertiseService (paramString (params["topics"], "command"), &SlifeNode::commandSrvCallback, this);
 }
@@ -63,30 +65,11 @@ bool SlifeNode::commandSrvCallback (slife::CmdRequest &request, slife::CmdRespon
 	return true;
 }
 
-void SlifeNode::publishTensor (SlifeHandler::OutputTensorType outputType, const Tensor &tensor, const std::vector<uint8_t> &extraData)
-{
-	MultiArray32Manager array(vector<int> (tensor.sizes().begin(), tensor.sizes().end()));
-	
-	memcpy (array.data ().data(), tensor.data_ptr(), tensor.element_size() * tensor.numel ());
-	auto tensorMsg = array.getMsg();
-	
-	switch (outputType) {
-	case SlifeHandler::OUTPUT_ESTIMATE:
-		publish ("estimate", tensorMsg);
-		break;
-	case SlifeHandler::OUTPUT_DEBUG_1:
-		publish ("debug_1", tensorMsg);
-		break;
-	case SlifeHandler::OUTPUT_DEBUG_2:
-		publish ("debug_2", tensorMsg);
-		break;
-	}
-}
-
 void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMsg)
 {
 	const int pclSize = pointcloudMsg.height * pointcloudMsg.width;
 	Tensor pointcloudTensor;
+	Timed<Tensor> timedPointcloud;
 
 	if (slifeHandler.isSyntheticPcl ()) {
 		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 3},
@@ -96,16 +79,21 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMs
 									  torch::TensorOptions().dtype (torch::kFloat32))
 					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
 	}
-	slifeHandler.performOptimization(pointcloudTensor);
+
+	timedPointcloud.obj () = pointcloudTensor;
+
+	timedPointcloud.time () = rosTimeToStd (pointcloudMsg.header.stamp);
+
+	slifeHandler.updatePointcloud(timedPointcloud);
 }
 
 void SlifeNode::groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg)
 {
-	QUA;
-	Tensor groundTruthTensor;
-	transformToTensor (groundTruthTensor, groundTruthMsg);
+	Timed<Tensor> timedGroundTruthTensor;
+	transformToTensor (timedGroundTruthTensor.obj (), groundTruthMsg);
+	timedGroundTruthTensor.time () = rosTimeToStd (groundTruthMsg.header.stamp);
 
-	slifeHandler.updateGroundTruth (groundTruthTensor);
+	slifeHandler.updateGroundTruth (timedGroundTruthTensor);
 }
 
 void transformToTensor (Tensor &out, const geometry_msgs::TransformStamped &transformMsg)
@@ -179,11 +167,83 @@ Test::Test (XmlRpc::XmlRpcValue &xmlParams,
 	initTestGrid ();
 }
 
+void handler(int sig)  {
+	STACKTRACE;
+	exit(-1);
+}
+
 int main (int argc, char *argv[])
 {
+	signal(SIGSEGV, handler);
 	init (argc, argv, NODE_NAME);
 
 	SlifeNode sn;
 
 	return sn.spin ();
 }
+
+OutputsManager::OutputsManager (NodeHandle *_nh):
+	nh(_nh)
+{
+}
+
+void OutputsManager::init (XmlRpc::XmlRpcValue &params)
+{
+	string topicPrefix = paramString (params["topics"], "output_prefix");
+
+	outputs.push_back (SlifeHandler::OUTPUT_ESTIMATE);
+
+	const vector<SlifeHandler::OutputType> &optionalOutputs =
+			paramArray<SlifeHandler::OutputType> (params, "outputs",
+										   [] (XmlRpc::XmlRpcValue &param) {
+		return paramEnum<SlifeHandler::OutputType> (param, {"estimate", "history", "error_history", "final_error", "relative_ground_truth"});
+	});
+
+	outputs.insert (outputs.end(), optionalOutputs.begin (), optionalOutputs.end ());
+
+	pubs.push_back (nh->advertise<std_msgs::Float32MultiArray> ("estimate", 1));
+
+	for (int i = 0; i < optionalOutputs.size (); i++)
+		pubs.push_back (nh->advertise<std_msgs::Float32MultiArray> (topicPrefix + "/output_" + to_string (i), 1));
+}
+
+const std::vector<SlifeHandler::OutputType> &OutputsManager::getOutputs() const {
+	return outputs;
+}
+
+void OutputsManager::publishTensor (int outputId, const Tensor &tensor, const std::vector<float> &extraData)
+{
+	Tensor contiguousTensor = tensor.contiguous ();
+	MultiArray32Manager array(vector<int> (contiguousTensor.sizes().begin(), contiguousTensor.sizes().end()), extraData.size ());
+
+	memcpy (array.data ().data(), extraData.data (), extraData.size ());
+	memcpy (array.data ().data() + extraData.size (), contiguousTensor.data_ptr(), contiguousTensor.element_size() * contiguousTensor.numel ());
+
+	auto tensorMsg = array.getMsg();
+
+	COUTN (contiguousTensor);
+
+	pubs[outputId].publish (tensorMsg);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

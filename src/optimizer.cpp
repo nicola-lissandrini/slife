@@ -63,7 +63,7 @@ bool Optimizer<LieGroup,TargetCostFunction>::isReady() const {
 }
 
 template<class LieGroup, class TargetCostFunction>
-LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
+void Optimizer<LieGroup, TargetCostFunction>::optimize ()
 {
 	LieGroup state = getInitialValue ();
 	LieGroup nextState;
@@ -95,13 +95,13 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::optimize ()
 		totalTaken += taken;
 	}
 
+	// TODO: clean this
 	initializations.lastResult = state;
+	estimate = state;
 
 	COUTN(state);
 	cout << "total taken: " << totalTaken << "ms avg. " << (totalTaken / double (iterations)) << "ms"<< endl;
 	cout << "Possible target Hz " << 1000/totalTaken << endl;
-
-	return state;
 }
 
 template<class LieGroup>
@@ -117,12 +117,14 @@ PointcloudMatch<LieGroup>::PointcloudMatch (const Landscape::Params::Ptr &landsc
 }
 
 template<class LieGroup>
-Pointcloud PointcloudMatch<LieGroup>::oldPointcloudBatch (const Tensor &batchIndexes) const
+Pointcloud PointcloudMatch<LieGroup>::oldPointcloudBatch () const
 {
 	if (!params().stochastic)
 		return oldPcl;
 
-	return oldPcl.index ({landscape.getBatchIndexes (), Ellipsis});
+	Tensor oldBatchNan = oldPcl.index ({landscape.getBatchIndexes (), Ellipsis});
+
+	return oldBatchNan.index ({oldBatchNan.isfinite ().sum(1).nonzero()}).view ({-1, 3});
 }
 
 template<class LieGroup>
@@ -135,7 +137,9 @@ PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 	//autograd::profiler::RecordProfile rp("/home/nicola/new.trace");
 
 	landscape.shuffleBatchIndexes ();
-	predicted = x * oldPointcloudBatch (landscape.getBatchIndexes ());
+	Tensor old = oldPointcloudBatch ();
+
+	predicted = x * old;
 
 	if (params().reshuffleBatchIndexes)
 		landscape.shuffleBatchIndexes ();
@@ -153,7 +157,7 @@ typename PointcloudMatch<LieGroup>::Vector
 PointcloudMatch<LieGroup>::value (const LieGroup &x)
 {
 	landscape.shuffleBatchIndexes ();
-	Pointcloud predicted = x * oldPointcloudBatch (landscape.getBatchIndexes ());
+	Pointcloud predicted = x * oldPointcloudBatch ();
 	Tensor totalValue = torch::zeros ({1}, kFloat);
 
 	for (int i = 0; i < predicted.size(0); i++) {

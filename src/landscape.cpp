@@ -30,37 +30,10 @@ Landscape::Landscape (const Params &_params):
 
 void Landscape::setPointcloud (const Pointcloud &_pointcloud)
 {
-	Tensor decimated;
+	pointcloud = _pointcloud.slice (0, 0, nullopt, params.decimation).clone ();
 
-	decimated = _pointcloud.slice (0, 0, nullopt, params.decimation);
-
-	pointcloud = decimated;
 	flags.set ("pointcloud_set");
 }
-
-/*
-void Landscape::setPointcloud(const Pointcloud &_pointcloud)
-{
-	Tensor decimated, pointcloudTensor;
-
-	double taken;
-	ROS_WARN ("Decimate");
-	PROFILE (taken,[&]{
-		decimated = _pointcloud.slice (0, 0, nullopt, params.decimation);
-	});
-	ROS_WARN ("Finding only finite points both");
-	PROFILE (taken,[&]{
-
-		torch::Tensor validIdxes = (torch::isfinite(decimated)).sum(1).logical_and (decimated.norm (2,1) < params.maximumDistance).nonzero();
-
-		pointcloudTensor = _pointcloud.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
-	});
-	COUTN(pointcloudTensor.size(0))
-
-	pointcloud = pointcloudTensor.unsqueeze(1);
-	flags.set("pointcloud_set");
-}
-*/
 
 Pointcloud Landscape::getPointcloud() const {
 	return pointcloud;
@@ -82,16 +55,6 @@ void Landscape::shuffleBatchIndexes ()
 		left = params.batchSize - batchIndexes.size(0);
 	}
 }
-
-/** OLD VERSION
-void Landscape::shuffleBatchIndexes ()
-{
-	validIdxes = torch::isfinite (decimated).sum (1).nonzero ();
-	selected = decimated.index ({validIdxes}).view ({validIdxes.size(0), D_3D});
-
-	batchIndexes = torch::randperm (pointcloud.size(0)).slice (0,0,params.batchSize);
-}
-**/
 
 Tensor Landscape::getBatchIndexes() const {
 	return batchIndexes;

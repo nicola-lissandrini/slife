@@ -1,23 +1,17 @@
 #include "slife/slife_handler.h"
+#include "lietorch/algorithms.h"
+#include "slife/slife_node.h"
 #include <functional>
 
 using namespace std;
 using namespace torch;
 using namespace lietorch;
 
-SlifeHandler::SlifeHandler(const SlifeHandler::TensorPublisherExtra &_tensorPublisher):
-	tensorPublishExtraCallback(_tensorPublisher),
-	tensorPublishCallback(bind (_tensorPublisher,
-						   placeholders::_1,
-						   placeholders::_2,
-						   std::vector<uint8_t> ()))
+SlifeHandler::SlifeHandler (const std::shared_ptr<OutputsManager> &_outputsManager):
+	outputsManager(_outputsManager)
 {
 	flags.addFlag ("initialized", true);
-
-	seq.pcl = -1;
-	seq.groundTruth = -1;
 }
-
 
 template<>
 Position SlifeHandler::poseTensorToGroup<Position> (const Tensor &grounTruthTensor) const {
@@ -34,28 +28,74 @@ Pose SlifeHandler::poseTensorToGroup<Pose> (const Tensor &groundTruthTensor) con
 	return Pose (groundTruthTensor);
 }
 
-void SlifeHandler::updateGroundTruth (const Tensor &groundTruthTensor) {
-	seq.groundTruth++;
-	groundTruthTracker->updateGroundTruth (
-				poseTensorToGroup<TargetGroup> (groundTruthTensor));
+void SlifeHandler::updateGroundTruth (const Timed<Tensor> &timedGroundTruthTensor)
+{
+	Timed<TargetGroup> timedGroundTruth(timedGroundTruthTensor.time(),
+								 poseTensorToGroup<TargetGroup> (timedGroundTruthTensor.obj()));
+	groundTruthSync->updateGroundTruth (timedGroundTruth);
 }
 
-void SlifeHandler::performOptimization (const Tensor &pointcloud)
+void SlifeHandler::updatePointcloud (const Timed<Tensor> &timedPointcloud)
 {
-	seq.pcl++;
-	optimizer->costFunction()->updatePointcloud (pointcloud);
+	if (!groundTruthSync->groundTruthReady ())
+		// Skip the first pointcloud if no ground truth received
+		return;
 
-	if (optimizer->isReady())
+	groundTruthSync->addSynchronizationMarker (timedPointcloud.time ());
+
+	optimizer->costFunction()->updatePointcloud (timedPointcloud.obj ());
+
+	if (optimizer->isReady() && groundTruthSync->markersReady ())
 	{
-		TargetGroup estimate = optimizer->optimize();
-		TargetGroup relativeGroundTruth = groundTruthTracker->getRelativeGroundTruth ();
-		cout << "optimizing with seq.pcl = " << seq.pcl << "; seq.groundTruth = " << seq.groundTruth << endl;
-		COUTN(relativeGroundTruth);
-		auto history = optimizer->getHistory ();
+		optimizer->optimize();
 
-		tensorPublishCallback (OUTPUT_ESTIMATE, estimate.coeffs);
-		tensorPublishExtraCallback (OUTPUT_DEBUG_1, historyToTensor (history), {params.targetOptimizationGroup});
-		tensorPublishExtraCallback (OUTPUT_DEBUG_2, computeHistoryError (history, relativeGroundTruth), {params.targetOptimizationGroup});
+		outputResults ();
+	}
+}
+
+Tensor SlifeHandler::getFinalError (const TargetGroup &result, const TargetGroup &groundTruth) {
+	/*
+	Tensor percentError = 100 * (relativeGroundTruth - estimate).linear().norm ()/ relativeGroundTruth.translation ().log ().norm ();
+	cout << "\nground truth: " << relativeGroundTruth.translation () << endl;
+	cout << "estimate: " << estimate.translation () << endl;
+	cout << "percent error: " << percentError.item ().toFloat () << "%\n" << endl;
+*/
+	return (result.coeffs, groundTruth.coeffs);
+}
+
+void SlifeHandler::outputResults ()
+{
+	int i = 0;
+
+	for (const OutputType &currType : outputsManager->getOutputs ()) {
+		Tensor outputTensor;
+		vector<float> extraData;
+
+		switch (currType) {
+		case OUTPUT_ESTIMATE:
+			outputTensor = optimizer->getEstimate ().coeffs;
+			break;
+		case OUTPUT_HISTORY:
+			outputTensor = historyToTensor (optimizer->getHistory ());
+			extraData = {params.targetOptimizationGroup};
+			break;
+		case OUTPUT_ERROR_HISTORY:
+			outputTensor = computeHistoryError (optimizer->getHistory (),
+										 groundTruthSync->getRelativeGroundTruth ());
+			extraData = {params.targetOptimizationGroup};
+			break;
+		case OUTPUT_FINAL_ERROR:
+			outputTensor = getFinalError (optimizer->getEstimate (),
+									groundTruthSync->getRelativeGroundTruth ());
+			extraData = {params.targetOptimizationGroup};
+			break;
+		case OUTPUT_RELATIVE_GROUND_TRUTH:
+			outputTensor = groundTruthSync->getRelativeGroundTruth ().coeffs;
+			break;
+		}
+
+		outputsManager->publishTensor (i, outputTensor, extraData);
+		i++;
 	}
 }
 
@@ -116,7 +156,7 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 	optimizer = make_shared<PointcloudMatchOptimizer<TargetGroup>> (optimizerParams,
 													    make_shared<PointcloudMatch<TargetGroup>> (landscapeParams,
 																						  costFunctionParams));
-	groundTruthTracker = make_shared<GroundTruthTracker> (params.groundTruthTracker);
+	groundTruthSync = make_shared<GroundTruthSync> (params.groundTruthTracker);
 
 	flags.set ("initialized");
 }
@@ -205,24 +245,79 @@ Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xm
 	return landscapeParams;
 }
 
-GroundTruthTracker::GroundTruthTracker (const GroundTruthTracker::Params &_params):
+GroundTruthSync::GroundTruthSync (const GroundTruthSync::Params &_params):
 	params(_params)
 {}
 
-void GroundTruthTracker::updateGroundTruth (const TargetGroup &groundTruth)
+void GroundTruthSync::updateGroundTruth (const Timed<TargetGroup> &groundTruth)
 {
-	groundTruths.push (groundTruth);
+	groundTruths.push_back (groundTruth);
 
 	if (groundTruths.size () > params.queueLength)
-		groundTruths.pop ();
+		groundTruths.pop_front ();
 }
 
-TargetGroup GroundTruthTracker::getRelativeGroundTruth () const {
-	COUTN(groundTruths.front ());
-	COUTN(groundTruths.back ());
-	return groundTruths.front ().inverse() * groundTruths.back ();
+
+void GroundTruthSync::addSynchronizationMarker (const Time &otherTime)
+{
+	GroundTruthBatch::iterator closest;
+	Timed<MarkerMatch> newMarker;
+
+	newMarker.time () = otherTime;
+
+	if (otherTime < groundTruths.front ().time ()) {
+		ROS_WARN_STREAM ("Ground truth matching the supplied timestamp has expired by " <<
+					   (chrono::duration<float, std::milli> (groundTruths.front ().time () - otherTime)).count() << "ms.\n"
+					   "Using last ground truth stored, probabily outdated.\n"
+					   "Consider increasing 'ground_truth_queue_length' to avoid this issue");
+		closest = groundTruths.begin ();
+	} else
+		closest = findClosest (otherTime);
+
+	if (next (closest) == groundTruths.end ())
+		newMarker.obj () = make_pair (*prev (closest), *closest);
+	else
+		newMarker.obj () = make_pair (*closest, *next (closest));
+
+	markerMatches.push (newMarker);
+
+	if (markerMatches.size () > 2)
+		markerMatches.pop ();
 }
 
+GroundTruthSync::GroundTruthBatch::iterator GroundTruthSync::findClosest (const Time &otherTime)
+{
+	auto it = std::lower_bound (groundTruths.begin (), groundTruths.end (), otherTime, [] (GroundTruthBatch::const_reference gt, decltype(otherTime) ot){ return gt.time () < ot; });
+
+	if (it == groundTruths.end ())
+		return prev (it);
+
+	return it;
+}
+
+TargetGroup GroundTruthSync::getMatchingGroundTruth (const Timed<MarkerMatch> &marker) const
+{
+	GroundTruth before = marker.obj ().first;
+	GroundTruth after = marker.obj ().second;
+
+	return extrapolate (before.obj (), after.obj (),
+					before.time (), after.time (), marker.time ());
+}
+
+TargetGroup GroundTruthSync::getRelativeGroundTruth () const {
+	TargetGroup first = getMatchingGroundTruth (markerMatches.front ());
+	TargetGroup last  = getMatchingGroundTruth (markerMatches.back ());
+
+	return first.inverse() * last;
+}
+
+bool GroundTruthSync::markersReady() const {
+	return markerMatches.size () == 2;
+}
+
+bool GroundTruthSync::groundTruthReady () const {
+	return groundTruths.size () > 1;
+}
 
 
 

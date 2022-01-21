@@ -13,8 +13,25 @@
 
 void transformToTensor (Tensor &out, const geometry_msgs::TransformStamped &transformMsg);
 
+class OutputsManager
+{
+	ros::NodeHandle *nh;
+	std::vector<SlifeHandler::OutputType> outputs;
+	std::vector<ros::Publisher> pubs;
+
+public:
+	OutputsManager (ros::NodeHandle *nh);
+
+	void init (XmlRpc::XmlRpcValue &params);
+	void publishTensor (int outputId, const torch::Tensor &tensor, const std::vector<float> &extraData = std::vector<float> ());
+	const std::vector<SlifeHandler::OutputType> &getOutputs () const;
+
+	DEF_SHARED(OutputsManager)
+};
+
 class SlifeNode : public SparcsNode
 {
+	OutputsManager outputsManager;
 	SlifeHandler slifeHandler;
 	ReadyFlagsStr readyFlags;
 	ros::ServiceServer commandSrv;
@@ -30,7 +47,6 @@ class SlifeNode : public SparcsNode
 	bool commandSrvCallback (slife::CmdRequest &request, slife::CmdResponse &response);
 	void pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMsg);
 	void groundTruthCallback (const geometry_msgs::TransformStamped &groundTruthMsg);
-	void publishTensor (SlifeHandler::OutputTensorType outputType, const torch::Tensor &tensor, const std::vector<uint8_t> &extraData = std::vector<uint8_t> ());
 
 public:
 	SlifeNode ();

@@ -75,7 +75,7 @@ protected:
 
 	lietorch::OpFcn sumOut;
 
-	Pointcloud oldPointcloudBatch (const Tensor &batchIndexes) const;
+	Pointcloud oldPointcloudBatch () const;
 
 	Params &params () {
 		return *std::dynamic_pointer_cast<Params> (paramsData);
@@ -131,6 +131,7 @@ public:
 private:
 	Params params;
 	typename TargetCostFunction::Ptr costFunctionPtr;
+	LieGroup estimate;
 	std::vector<LieGroup> history;
 	struct {
 		LieGroup identity;
@@ -146,7 +147,10 @@ public:
 		costFunctionPtr(_costFunctionPtr)
 	{}
 
-	LieGroup optimize ();
+	void optimize();
+	LieGroup getEstimate () const {
+		return estimate;
+	}
 	bool isReady () const;
 	typename TargetCostFunction::Ptr costFunction () {
 		return costFunctionPtr;
