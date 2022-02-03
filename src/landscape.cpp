@@ -47,13 +47,20 @@ void Landscape::shuffleBatchIndexes ()
 	batchIndexes = torch::empty ({0}, kLong);
 	while (left > 0) {
 		Tensor selectedPermutation = permutation.slice (0, used, used + left);
-		Tensor selectedPointcloud = pointcloud.index ({selectedPermutation, Ellipsis});
-		Tensor currentValidIdxes = selectedPermutation.index ({selectedPointcloud.isfinite ().sum(1) > 0});
+		Tensor currentValidIdxes = selectInformativeIndexes (selectedPermutation, pointcloud);
 		batchIndexes = torch::cat ({batchIndexes, currentValidIdxes});
 
 		used += left;
 		left = params.batchSize - batchIndexes.size(0);
 	}
+}
+
+Tensor Landscape::selectInformativeIndexes(const Tensor &indexes, const Pointcloud &pointcloud) const
+{
+	Tensor selectedPointcloud = pointcloud.index ({indexes, Ellipsis});
+	return indexes.index ({(selectedPointcloud.isfinite ().sum(1) > 0)
+					   .logical_and (selectedPointcloud.norm(2,1) > params.clipArea.min)
+					   .logical_and (selectedPointcloud.norm(2,1) < params.clipArea.max)});
 }
 
 Tensor Landscape::getBatchIndexes() const {

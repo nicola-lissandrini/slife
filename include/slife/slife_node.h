@@ -8,6 +8,7 @@
 #include <boost/optional.hpp>
 #define NODE_NAME "slife"
 
+#include <std_msgs/Float32MultiArray.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <geometry_msgs/TransformStamped.h>
 
@@ -19,11 +20,15 @@ class OutputsManager
 	std::vector<SlifeHandler::OutputType> outputs;
 	std::vector<ros::Publisher> pubs;
 
+	void tensorToMsg (std_msgs::Float32MultiArray &outputMsg, const torch::Tensor &tensor, const std::vector<float> &extraData = std::vector<float> ());
+	void tensorToMsg (sensor_msgs::PointCloud2 &outputMsg, const torch::Tensor &tensor, const std::vector<float> &extraData = std::vector<float> ());
+
+
 public:
 	OutputsManager (ros::NodeHandle *nh);
 
 	void init (XmlRpc::XmlRpcValue &params);
-	void publishTensor (int outputId, const torch::Tensor &tensor, const std::vector<float> &extraData = std::vector<float> ());
+	void publishData (int outputId, const torch::Tensor &tensor, const std::vector<float> &extraData = std::vector<float> ());
 	const std::vector<SlifeHandler::OutputType> &getOutputs () const;
 
 	DEF_SHARED(OutputsManager)
@@ -37,7 +42,9 @@ class SlifeNode : public SparcsNode
 	ros::ServiceServer commandSrv;
 
 	enum CmdOpCode {
-		CMD_IS_READY = 0
+		CMD_IS_READY = 0,
+		CMD_PAUSE,
+		CMD_START
 	};
 
 	void initParams ();

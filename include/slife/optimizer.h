@@ -75,7 +75,6 @@ protected:
 
 	lietorch::OpFcn sumOut;
 
-	Pointcloud oldPointcloudBatch () const;
 
 	Params &params () {
 		return *std::dynamic_pointer_cast<Params> (paramsData);
@@ -92,11 +91,13 @@ public:
 	Tangent gradient (const LieGroup &x);
 
 	void updatePointcloud (const Pointcloud &pointcloud);
+	Pointcloud getPointcloud () const;
 	bool isReady () const;
 
 	// Test
 	Tensor test (Test::Type type);
 	Landscape::Params::Ptr getLandscapeParams () const;
+	Pointcloud oldPointcloudBatch (bool clipUninformative = true) const;
 
 	// Cost testing only implemented for Position or Pose
 	TestFcn getCostLambda (Test::Type);
@@ -112,10 +113,13 @@ class Optimizer
 	using Coeffs = typename LieGroup::DataType;
 
 public:
+	using History = std::vector<LieGroup>;
+
 	enum InitializationType {
 		INITIALIZATION_IDENTITY = 0,
 		INITIALIZATION_LAST
 	};
+
 	struct Params {
 		torch::Tensor stepSizes;
 		torch::Tensor normWeights;
@@ -131,8 +135,7 @@ public:
 private:
 	Params params;
 	typename TargetCostFunction::Ptr costFunctionPtr;
-	LieGroup estimate;
-	std::vector<LieGroup> history;
+
 	struct {
 		LieGroup identity;
 		LieGroup lastResult;
@@ -147,16 +150,18 @@ public:
 		costFunctionPtr(_costFunctionPtr)
 	{}
 
-	void optimize();
-	LieGroup getEstimate () const {
-		return estimate;
-	}
+	void optimize (LieGroup &estimate, History &history);
 	bool isReady () const;
+	void reset();
+	void disable () {
+		params.disable = true;
+	}
+	void enable () {
+		params.disable = false;
+	}
 	typename TargetCostFunction::Ptr costFunction () {
 		return costFunctionPtr;
 	}
-
-	std::vector<LieGroup> getHistory () const;
 
 	DEF_SHARED(Optimizer)
 };

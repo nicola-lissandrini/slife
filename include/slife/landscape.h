@@ -72,7 +72,7 @@ public:
 	struct Params {
 		Scalar measureRadius;
 		Scalar smoothRadius;
-		Scalar maximumDistance;
+		Range clipArea;
 		int precision;
 		int batchSize; // number of simultaneous landscape points evaluation
 		int decimation;
@@ -97,7 +97,6 @@ private:
 	Tensor peak (const Tensor &v) const;
 	Tensor preSmoothValue (const Tensor &p) const;
 	Tensor preSmoothGradient (const Tensor &p) const;
-	Tensor getPointcloudBatch () const;
 
 	float getNoAmplificationGain () const;
 	float getSmoothGain () const;
@@ -110,9 +109,12 @@ public:
 	void shuffleBatchIndexes ();
 	Tensor getBatchIndexes () const;
 	Pointcloud getPointcloud () const;
+	Tensor getPointcloudBatch () const;
 
 	Tensor value (const Tensor &p);
 	Tensor gradient (const Tensor &p);
+
+	Tensor selectInformativeIndexes (const Tensor &indexes, const Pointcloud &pointcloud) const;
 
 	DEF_SHARED(Landscape)
 };

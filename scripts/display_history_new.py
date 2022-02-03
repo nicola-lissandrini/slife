@@ -9,7 +9,7 @@ import numpy as np
 from std_msgs.msg import Float32MultiArray
 import torch
 
-history_topic = "/slife/debug/ground_truth_error"
+history_topic = "/slife/debug/output_2"
 
 def handle_close (fig):
     quit ()
@@ -24,7 +24,7 @@ class DisplayHistoryNode:
         for curr_dim in tensor_msg.layout.dim:
             self.sizes.append (curr_dim.size)
             
-        self.tensor =torch.from_numpy (np.array (tensor_msg.data).reshape (self.sizes))
+        self.tensor =torch.from_numpy (np.array (tensor_msg.data[tensor_msg.layout.data_offset:]).reshape (self.sizes))
         self.draw ()
 
     def process_data (self, tensor):
@@ -47,6 +47,8 @@ class DisplayHistoryNode:
         #plt.plot(error_q, label="rotation")
         plt.xlabel ("# iterations")
         plt.ylabel ("error norm (chordal metrics)")
+        #plt.ylim([-0.2, 0.2])
+        plt.title ("Current OP history")
         plt.legend ()
         plt.grid ()
         plt.draw ()

@@ -54,16 +54,17 @@ LieGroup Optimizer<LieGroup, TargetCostFunction>::getInitialValue()
 }
 
 template<class LieGroup, class TargetCostFunction>
-vector<LieGroup> Optimizer<LieGroup, TargetCostFunction>::getHistory() const {
-	return history;
-}
-template<class LieGroup, class TargetCostFunction>
 bool Optimizer<LieGroup,TargetCostFunction>::isReady() const {
 	return costFunctionPtr->isReady () && !params.disable;
 }
 
 template<class LieGroup, class TargetCostFunction>
-void Optimizer<LieGroup, TargetCostFunction>::optimize ()
+void Optimizer<LieGroup, TargetCostFunction>::reset () {
+	initializations.lastResult = LieGroup::Identity ();
+}
+
+template<class LieGroup, class TargetCostFunction>
+void Optimizer<LieGroup, TargetCostFunction>::optimize (LieGroup &estimate, History &history)
 {
 	LieGroup state = getInitialValue ();
 	LieGroup nextState;
@@ -73,17 +74,17 @@ void Optimizer<LieGroup, TargetCostFunction>::optimize ()
 
 	history.clear ();
 
+	COUTN(getInitialValue ());
+
 	while (!terminationCondition) {
 		if (params.recordHistory)
 			history.push_back(state);
 
 		PROFILE_N_EN(taken, [&]{
 			auto gradient = costFunction()->gradient (state);
-			/*COUTN(gradient.coeffs.norm());
-			COUTN((params.stepSizes / gradient.coeffs.norm().sqrt()))*/
 
-			nextState = state - gradient * (params.stepSizes / gradient.coeffs.norm().sqrt());
-
+			/// OLD TRICK DISABLED nextState = state - gradient * (params.stepSizes / gradient.coeffs.norm().sqrt());
+			nextState = state - gradient * params.stepSizes;
 			terminationCondition = (nextState.dist(state, params.normWeights) < params.threshold).item().toBool() ||
 							   (iterations >= params.maxIterations).item().toBool ();
 
@@ -95,10 +96,8 @@ void Optimizer<LieGroup, TargetCostFunction>::optimize ()
 		totalTaken += taken;
 	}
 
-	// TODO: clean this
 	initializations.lastResult = state;
-	estimate = state;
-
+	estimate = state.coeffs.clone ();
 	COUTN(state);
 	cout << "total taken: " << totalTaken << "ms avg. " << (totalTaken / double (iterations)) << "ms"<< endl;
 	cout << "Possible target Hz " << 1000/totalTaken << endl;
@@ -117,14 +116,16 @@ PointcloudMatch<LieGroup>::PointcloudMatch (const Landscape::Params::Ptr &landsc
 }
 
 template<class LieGroup>
-Pointcloud PointcloudMatch<LieGroup>::oldPointcloudBatch () const
+Pointcloud PointcloudMatch<LieGroup>::oldPointcloudBatch (bool clipUninformative) const
 {
 	if (!params().stochastic)
 		return oldPcl;
 
-	Tensor oldBatchNan = oldPcl.index ({landscape.getBatchIndexes (), Ellipsis});
-
-	return oldBatchNan.index ({oldBatchNan.isfinite ().sum(1).nonzero()}).view ({-1, 3});
+	if (clipUninformative) {
+		Tensor oldBatchValidIdxes = landscape.selectInformativeIndexes (landscape.getBatchIndexes (), oldPcl);
+		return oldPcl.index ({oldBatchValidIdxes, Ellipsis});
+	} else
+		return oldPcl.index ({landscape.getBatchIndexes (), Ellipsis});
 }
 
 template<class LieGroup>
@@ -146,8 +147,6 @@ PointcloudMatch<LieGroup>::gradient (const LieGroup &x)
 
 	landscapeGradient = landscape.gradient(predicted);
 	totalGradient = x.differentiate(landscapeGradient, predicted, sumOut, jacobian);
-
-	// COUTN((jacobian.t().mm(jacobian)).inverse().mv(totalGradientNew.coeffs));
 
 	return totalGradient;
 }
@@ -183,6 +182,11 @@ void PointcloudMatch<LieGroup>::updatePointcloud(const Pointcloud &pointcloud)
 
 	flags.set("new_pointcloud");
 	landscape.setPointcloud (pointcloud);
+}
+
+template<class LieGroup>
+Pointcloud PointcloudMatch<LieGroup>::getPointcloud () const {
+	return landscape.getPointcloudBatch ();
 }
 
 template<>
