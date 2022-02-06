@@ -64,17 +64,20 @@ void Optimizer<LieGroup, TargetCostFunction>::reset () {
 }
 
 template<class LieGroup, class TargetCostFunction>
-void Optimizer<LieGroup, TargetCostFunction>::optimize (LieGroup &estimate, History &history)
+void Optimizer<LieGroup, TargetCostFunction>::optimize (LieGroup &estimate, History &history) {
+	return optimize (getInitialValue (), estimate, history);
+}
+
+template<class LieGroup, class TargetCostFunction>
+void Optimizer<LieGroup, TargetCostFunction>::optimize (const LieGroup &initialization, LieGroup &estimate, History &history)
 {
-	LieGroup state = getInitialValue ();
+	LieGroup state = initialization;
 	LieGroup nextState;
 	bool terminationCondition = false;
 	int iterations = 0;
 	double taken, totalTaken = 0;
 
 	history.clear ();
-
-	COUTN(getInitialValue ());
 
 	while (!terminationCondition) {
 		if (params.recordHistory)
@@ -98,9 +101,35 @@ void Optimizer<LieGroup, TargetCostFunction>::optimize (LieGroup &estimate, Hist
 
 	initializations.lastResult = state;
 	estimate = state.coeffs.clone ();
-	COUTN(state);
-	cout << "total taken: " << totalTaken << "ms avg. " << (totalTaken / double (iterations)) << "ms"<< endl;
-	cout << "Possible target Hz " << 1000/totalTaken << endl;
+	//COUTN(state);
+	//cout << "total taken: " << totalTaken << "ms avg. " << (totalTaken / double (iterations)) << "ms"<< endl;
+	//cout << "Possible target Hz " << 1000/totalTaken << endl;
+}
+
+template<class LieGroup, class TargetCostFunction>
+void Optimizer<LieGroup, TargetCostFunction>::localMinHeuristics(vector<LieGroup> &estimates, vector<Optimizer::History> &histories)
+{
+	// Perform first estimate
+	LieGroup firstEstimate;
+	Optimizer::History firstHistory;
+
+	optimize (firstEstimate, firstHistory);
+	estimates.push_back (firstEstimate);
+	histories.push_back (firstHistory);
+
+	// Draw new initializations
+	Tensor initializationsNoiseTangent = torch::normal (0., params.localMinHeuristics.scatter, {params.localMinHeuristics.count, LieGroup::Tangent::Dim});
+	Tensor initializationsTangent = initializationsNoiseTangent + firstEstimate.log ().coeffs;
+
+	for (int i = 0; i < params.localMinHeuristics.count; i++) {
+		LieGroup currentInitialization = typename LieGroup::Tangent (initializationsTangent[i]).exp ();
+		LieGroup currentEstimate;
+		Optimizer::History currentHistory;
+
+		optimize (currentInitialization, currentEstimate, currentHistory);
+		estimates.push_back (currentEstimate);
+		histories.push_back (currentHistory);
+	}
 }
 
 template<class LieGroup>

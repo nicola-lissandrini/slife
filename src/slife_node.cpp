@@ -5,15 +5,13 @@
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
 
-using namespace ros;
 using namespace std;
 using namespace torch;
 
-
 Test::Ptr tester;
 
-chrono::time_point<chrono::system_clock> rosTimeToStd (const ros::Time &rosTime) {
-	return chrono::time_point<chrono::system_clock> () + chrono::nanoseconds(rosTime.toNSec ());
+Time rosTimeToStd (const ros::Time &rosTime) {
+	return Time () + chrono::nanoseconds(rosTime.toNSec ());
 }
 
 SlifeNode::SlifeNode ():
@@ -35,8 +33,8 @@ void SlifeNode::initParams () {
 
 void SlifeNode::initROS ()
 {
-	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2000, &SlifeNode::pointcloudCallback);
-	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 2000, &SlifeNode::groundTruthCallback);
+	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 1, &SlifeNode::pointcloudCallback);
+	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 1, &SlifeNode::groundTruthCallback);
 
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
@@ -177,7 +175,7 @@ Test::Test (XmlRpc::XmlRpcValue &xmlParams,
 	initTestGrid ();
 }
 
-OutputsManager::OutputsManager (NodeHandle *_nh):
+OutputsManager::OutputsManager (ros::NodeHandle *_nh):
 	nh(_nh)
 {
 }
@@ -270,7 +268,7 @@ int main (int argc, char *argv[])
 {
 	signal(SIGSEGV, handler);
 	signal(SIGABRT, handler);
-	init (argc, argv, NODE_NAME);
+	ros::init (argc, argv, NODE_NAME);
 
 	SlifeNode sn;
 

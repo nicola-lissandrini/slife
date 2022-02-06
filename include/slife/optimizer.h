@@ -126,6 +126,10 @@ public:
 		torch::Tensor threshold;
 		InitializationType initializationType;
 		torch::Tensor maxIterations;
+		struct {
+			uint count;
+			float scatter;
+		} localMinHeuristics;
 		bool recordHistory;
 		bool disable;
 
@@ -151,6 +155,8 @@ public:
 	{}
 
 	void optimize (LieGroup &estimate, History &history);
+	void optimize (const LieGroup &initialization, LieGroup &estimate, History &history);
+	void localMinHeuristics (std::vector<LieGroup> &estimates, std::vector<History> &histories);
 	bool isReady () const;
 	void reset();
 	void disable () {
