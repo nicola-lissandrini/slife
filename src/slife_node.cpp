@@ -5,15 +5,13 @@
 #include <std_msgs/Empty.h>
 #include <ATen/ATen.h>
 
-using namespace ros;
 using namespace std;
 using namespace torch;
 
-
 Test::Ptr tester;
 
-chrono::time_point<chrono::system_clock> rosTimeToStd (const ros::Time &rosTime) {
-	return chrono::time_point<chrono::system_clock> () + chrono::nanoseconds(rosTime.toNSec ());
+Time rosTimeToStd (const ros::Time &rosTime) {
+	return Time () + chrono::nanoseconds(rosTime.toNSec ());
 }
 
 SlifeNode::SlifeNode ():
@@ -35,12 +33,11 @@ void SlifeNode::initParams () {
 
 void SlifeNode::initROS ()
 {
-	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 2, &SlifeNode::pointcloudCallback);
-	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 2, &SlifeNode::groundTruthCallback);
+	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 1, &SlifeNode::pointcloudCallback);
+	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 1, &SlifeNode::groundTruthCallback);
 
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
-	vector<Publisher> outputList;
 
 	commandSrv = nh.advertiseService (paramString (params["topics"], "command"), &SlifeNode::commandSrvCallback, this);
 }
@@ -56,6 +53,17 @@ bool SlifeNode::commandSrvCallback (slife::CmdRequest &request, slife::CmdRespon
 	switch (cmd) {
 	case CMD_IS_READY:
 		response.response = (int64_t) slifeHandler.isReady ();
+		break;
+	case CMD_PAUSE:
+		if (slifeHandler.isReady ()) {
+			slifeHandler.pause ();
+			response.response = 1;
+		} else
+			response.response = 0;
+		break;
+	case CMD_START:
+		slifeHandler.start ();
+		response.response = 1;
 		break;
 	default:
 		ROS_WARN ("Unrecognized command received %d", request.command);
@@ -167,22 +175,7 @@ Test::Test (XmlRpc::XmlRpcValue &xmlParams,
 	initTestGrid ();
 }
 
-void handler(int sig)  {
-	STACKTRACE;
-	exit(-1);
-}
-
-int main (int argc, char *argv[])
-{
-	signal(SIGSEGV, handler);
-	init (argc, argv, NODE_NAME);
-
-	SlifeNode sn;
-
-	return sn.spin ();
-}
-
-OutputsManager::OutputsManager (NodeHandle *_nh):
+OutputsManager::OutputsManager (ros::NodeHandle *_nh):
 	nh(_nh)
 {
 }
@@ -196,35 +189,94 @@ void OutputsManager::init (XmlRpc::XmlRpcValue &params)
 	const vector<SlifeHandler::OutputType> &optionalOutputs =
 			paramArray<SlifeHandler::OutputType> (params, "outputs",
 										   [] (XmlRpc::XmlRpcValue &param) {
-		return paramEnum<SlifeHandler::OutputType> (param, {"estimate", "history", "error_history", "final_error", "relative_ground_truth"});
+		return paramEnum<SlifeHandler::OutputType> (param, outputStrings);
 	});
 
 	outputs.insert (outputs.end(), optionalOutputs.begin (), optionalOutputs.end ());
 
-	pubs.push_back (nh->advertise<std_msgs::Float32MultiArray> ("estimate", 1));
+	pubs.push_back (nh->advertise<std_msgs::Float32MultiArray> (paramString (params["topics"], "estimate"), 1));
 
-	for (int i = 0; i < optionalOutputs.size (); i++)
-		pubs.push_back (nh->advertise<std_msgs::Float32MultiArray> (topicPrefix + "/output_" + to_string (i), 1));
+	for (int i = 1; i < outputs.size (); i++) {
+		string topic = topicPrefix + "/output_" + to_string (i);
+		if (outputs[i] == SlifeHandler::OUTPUT_PROCESSED_POINTCLOUD)
+			pubs.push_back (nh->advertise<sensor_msgs::PointCloud2> (topic, 1));
+		else
+			pubs.push_back (nh->advertise<std_msgs::Float32MultiArray> (topic, 1));
+	}
+
 }
 
 const std::vector<SlifeHandler::OutputType> &OutputsManager::getOutputs() const {
 	return outputs;
 }
 
-void OutputsManager::publishTensor (int outputId, const Tensor &tensor, const std::vector<float> &extraData)
+void OutputsManager::tensorToMsg (std_msgs::Float32MultiArray &outputMsg, const torch::Tensor &tensor, const std::vector<float> &extraData)
 {
-	Tensor contiguousTensor = tensor.contiguous ();
-	MultiArray32Manager array(vector<int> (contiguousTensor.sizes().begin(), contiguousTensor.sizes().end()), extraData.size ());
+	MultiArray32Manager array(vector<int> (tensor.sizes().begin(), tensor.sizes().end()), extraData.size ());
 
-	memcpy (array.data ().data(), extraData.data (), extraData.size ());
-	memcpy (array.data ().data() + extraData.size (), contiguousTensor.data_ptr(), contiguousTensor.element_size() * contiguousTensor.numel ());
+	memcpy (array.data ().data(), extraData.data (), extraData.size () * sizeof (float));
+	memcpy (((float *) array.data ().data()) + extraData.size (), tensor.data_ptr(), tensor.element_size() * tensor.numel ());
 
-	auto tensorMsg = array.getMsg();
-
-	COUTN (contiguousTensor);
-
-	pubs[outputId].publish (tensorMsg);
+	outputMsg = array.getMsg();
 }
+
+void OutputsManager::tensorToMsg (sensor_msgs::PointCloud2 &outputMsg, const torch::Tensor &tensor, const std::vector<float> &extraData)
+{
+	sensor_msgs::PointField pointFieldProto;
+	pointFieldProto.datatype = 7;
+	pointFieldProto.count = 1;
+
+	pointFieldProto.name = "x";
+	pointFieldProto.offset = 0;
+	outputMsg.fields.push_back (pointFieldProto);
+	pointFieldProto.name = "y";
+	pointFieldProto.offset = 4;
+	outputMsg.fields.push_back (pointFieldProto);
+	pointFieldProto.name = "z";
+	pointFieldProto.offset = 8;
+	outputMsg.fields.push_back (pointFieldProto);
+
+	outputMsg.height = 1;
+	outputMsg.width = tensor.size(0);
+
+	outputMsg.data = vector<uint8_t> ((uint8_t*)tensor.data_ptr (), (uint8_t*)tensor.data_ptr () + tensor.numel () * tensor.element_size ());
+	outputMsg.header.frame_id = "map";
+	outputMsg.point_step = D_3D * tensor.element_size ();
+}
+
+
+void OutputsManager::publishData (int outputId, const Tensor &tensor, const std::vector<float> &extraData)
+{
+	if (outputs[outputId] == SlifeHandler::OUTPUT_PROCESSED_POINTCLOUD) {
+		sensor_msgs::PointCloud2 pointcloudMsg;
+		tensorToMsg (pointcloudMsg, tensor, extraData);
+		pubs[outputId].publish (pointcloudMsg);
+	} else {
+		std_msgs::Float32MultiArray tensorMsg;
+		tensorToMsg (tensorMsg, tensor, extraData);
+		pubs[outputId].publish (tensorMsg);
+	}
+}
+
+
+void handler(int sig)  {
+	STACKTRACE;
+	exit(-1);
+}
+
+int main (int argc, char *argv[])
+{
+	signal(SIGSEGV, handler);
+	signal(SIGABRT, handler);
+	ros::init (argc, argv, NODE_NAME);
+
+	SlifeNode sn;
+
+	return sn.spin ();
+}
+
+
+
 
 
 

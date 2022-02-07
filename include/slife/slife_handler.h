@@ -11,16 +11,22 @@
 #include "landscape.h"
 #include "test.h"
 
-using TargetGroup = lietorch::Pose;
+using TargetGroup = lietorch::Position;
+
+using Clock = std::chrono::system_clock;
+using Duration = std::chrono::duration<double>;
+using Time = std::chrono::time_point<Clock, Duration>;
 
 template<class T>
-using Timed = TimedClock<T, std::chrono::system_clock>;
+using Timed = TimedClock<T, Clock, Duration>;
+
 
 class GroundTruthSync
 {
 public:
 	struct Params {
 		int queueLength;
+		float msOffset;
 
 		DEF_SHARED(Params)
 	};
@@ -28,13 +34,12 @@ public:
 private:
 	using GroundTruth = Timed<TargetGroup>;
 	using GroundTruthBatch = std::deque<GroundTruth>;
-	using Time = std::chrono::time_point<std::chrono::system_clock>;
-	using TimeDuration = std::chrono::duration<float>;
 	using MarkerMatch = std::pair<GroundTruth, GroundTruth>;
 
 	GroundTruthBatch groundTruths;
 	// The time in the markers correspond to the pcl time
 	std::queue<Timed<MarkerMatch>> markerMatches;
+	Duration offset;
 
 	Params params;
 	GroundTruthBatch::iterator findClosest(const Time &otherTime);
@@ -46,16 +51,78 @@ public:
 	void updateGroundTruth (const Timed<TargetGroup> &groundTruth);
 	void addSynchronizationMarker (const Time &otherTime);
 	TargetGroup getRelativeGroundTruth () const;
+	TargetGroup getMatchBefore() const;
+	TargetGroup getMatchAfter() const;
 	bool markersReady () const;
 	bool groundTruthReady() const;
+	void reset ();
 
 	DEF_SHARED(GroundTruthSync)
 };
 
+template<class Reading>
+class ReadingWindow
+{
+public:
+	enum Mode {
+		MODE_SLIDING,
+		MODE_DOWNSAMPLE
+	};
+
+	struct Params {
+		Mode mode;
+		uint size;
+
+		DEF_SHARED(Params)
+	};
+
+private:
+	std::queue<Reading> readingQueue;
+	uint skipped;
+	Params params;
+
+	void addDownsample (const Reading &newReading);
+	void addSliding (const Reading &newReading);
+
+public:
+	ReadingWindow (const Params &_params);
+
+	void add (const Reading &newReading);
+	Reading get ();
+	bool isReady () const;
+	void reset();
+
+	DEF_SHARED(ReadingWindow)
+};
+
+class FrequencyEstimator
+{
+
+	Time last;
+	Duration lastPeriod;
+	Duration averagePeriod;
+	uint seq;
+
+public:
+	FrequencyEstimator ();
+
+	void tick ();
+	void tick (const Time &now);
+	double estimateSeconds () const;
+	double estimateHz () const;
+	double lastPeriodSeconds () const;
+	void reset();
+};
+
+
 class OutputsManager;
+extern std::vector<std::string> outputStrings;
 
 class SlifeHandler
 {
+	using PointcloudWindow = ReadingWindow<Timed<Pointcloud>>;
+	using TargetOptimizer = PointcloudMatchOptimizer<TargetGroup>;
+
 public:
 	enum TargetOptimizationGroup {
 		TARGET_POSITION,
@@ -71,37 +138,65 @@ public:
 		OUTPUT_HISTORY,
 		OUTPUT_ERROR_HISTORY,
 		OUTPUT_FINAL_ERROR,
-		OUTPUT_RELATIVE_GROUND_TRUTH
+		OUTPUT_RELATIVE_GROUND_TRUTH,
+		OUTPUT_ESTIMATE_WORLD,
+		OUTPUT_PROCESSED_POINTCLOUD,
+		OUTPUT_MISC
+	};
+
+	struct Results {
+		TargetGroup estimate;
+		std::vector<TargetGroup> minima;
+		TargetOptimizer::History history;
+		std::vector<TargetOptimizer::History> histories;
+		TargetGroup groundTruth;
+		bool ready;
+
+		Tensor historyTensor () const;
+		Tensor historyErrorTensor () const;
+		Tensor finalErrorTensor () const;
+
+		Results ():
+			ready(false)
+		{}
 	};
 
 private:
 	struct Params {
 		bool syntheticPcl;
+		bool normalizeBySampleTime;
+		bool enableLocalMinHeuristics;
 		TargetOptimizationGroup targetOptimizationGroup;
+		lietorch::Pose cameraFrame;
+		PointcloudWindow::Params readingWindow;
 		GroundTruthSync::Params groundTruthTracker;
 
 		DEF_SHARED (Params)
 	};
-	
+
 	Params params;
 	ReadyFlags<std::string> flags;
-	typename PointcloudMatchOptimizer<TargetGroup>::Ptr optimizer;
+	typename TargetOptimizer::Ptr optimizer;
 	GroundTruthSync::Ptr groundTruthSync;
 	std::shared_ptr<OutputsManager> outputsManager;
+	PointcloudWindow::Ptr pointcloudWindow;
 
-	void outputResults ();
-	Tensor computeHistoryError (const std::vector<TargetGroup> &historyVector, const TargetGroup &groundTruth);
-	Tensor historyToTensor (const std::vector<TargetGroup> &historyVector);
-	Tensor getFinalError (const TargetGroup &result, const TargetGroup &groundTruth);
+	FrequencyEstimator groundTruthFreq, pointcloudFreq;
+
+	void outputResults (const Results &results);
 	template<class LieGroup>
 	LieGroup poseTensorToGroup (const torch::Tensor &poseTensor) const;
+	TargetGroup normalizeToSampleTime(const TargetGroup &value, const FrequencyEstimator &frequency);
+	template<class LieGroup>
+	LieGroup cameraToGroundTruthFrame(const LieGroup &valueInCameraFrame);
 
-	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
+	typename TargetOptimizer::Params::Ptr getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams);
 	typename PointcloudMatch<TargetGroup>::Params::Ptr getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams);
 
 	Landscape::Params::Ptr getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams);
 	SlifeHandler::Params getHandlerParams(XmlRpc::XmlRpcValue &xmlParams);
 
+	Tensor miscTest (const Results &results);
 	void test ();
 
 public:
@@ -113,6 +208,9 @@ public:
 
 	bool isSyntheticPcl() const;
 	bool isReady () const;
+	void pause ();
+	void start ();
+	void reset ();
 
 	int synchronousActions ();
 

@@ -1,8 +1,18 @@
 slife:
   rate: 200 # rate of asynchronous actions
   synthetic_pcl: false # pcl from depth camera ? false : true;
-  ground_truth_queue_length: 40
-  outputs: [relative_ground_truth, final_error]       # options: {history, error_history, final_error, relative_ground_truth}
+  vicon_to_camera_frame: [0., 0., 0., -0.5, 0.5, 0.5, 0.5 ]
+  ground_truth_sync:
+    queue_length: 1000
+    ms_offset: 200  # ms
+  normalize_by_sample_time: false
+  enable_local_min_heuristics: true
+
+  # options: [history, error_history, final_error, relative_ground_truth, rocessed_pointcloud, misc]
+  outputs: [relative_ground_truth, history, processed_pointcloud]
+
+  window_mode: downsample   # options: {sliding [not optimized yet], downsample}
+  window_size: 15
 
   topics:
     pointcloud: /camera/depth/pointcloud
@@ -14,24 +24,29 @@ slife:
 
   landscape:
     measure_radius: 0.7
-    smooth_radius: 0.001
-    precision: 10           # number of particles in the montecarlo estimate
-    decimation: 10           # pointcloud elements decimation factor
-    maximum_distance: 200   # remove points from pcl farther than maximum_distance 
-    batch_size: 20         # number of points randomly draw from pcl used for landscape generation
+    smooth_radius: 0.0000001
+    precision: 1                # number of particles in the montecarlo estimate
+    decimation: 100              # pointcloud elements decimation factor
+    clip_area:                  # remove points from pcl farther than max and lower than min 
+      min: 0.5
+      max: 2
+    batch_size: 100            # number of points randomly draw from pcl used for landscape generation
     stochastic: true
 
-  target_optimization_group: pose # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`, in slife_handler.h
+  target_optimization_group: position # options: {position, quaternion_r4, quaternion, pose_r4, pose, dual_quaternion [not implemented yet]}, warning: need to recompile with `using TargetGroup = <desired target group>`, in slife_handler.h
   optimizer:
-    step_sizes: [0.008, 0.008] # pose [0.015, 0.015]
-    norm_weights: [1, 1]
+    step_sizes: 0.001
+    norm_weights: 1 # [1, 1]
     threshold: 0.000
-    max_iterations: 30
-    initialization_type: identity # options: {identity, last, external [not implemented]}
-    record_history: true          # time consuming, use only for debug
-    disable: false                # do not perform optimization, only collect data and test
+    max_iterations: 100
+    initialization_type: last   # options: {identity, last, external [not implemented]}
+    record_history: true        # time consuming, use only for debug
+    disable: false              # do not perform optimization, only collect data and test
+    local_min_heuristics:       # after first optimization, draw gaussian samples around the result and retry optimization
+      count: 1                 # number of new reinitializations
+      scatter: 0.03              # variance of normal distribution to draw from
     cost:
-      batch_size: 20 
+      batch_size: 50          # number of points where landscape is evaluated
       stochastic: true
       reshuffle_batch_indexes: false
 

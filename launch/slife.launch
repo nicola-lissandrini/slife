@@ -7,7 +7,26 @@
 	<node type="slife" name="slife" pkg="slife" output="screen" required="true"  respawn="false" />
 	<!--node type="synth_pcl_node.py" name="synth_pcl_node" pkg="slife" output="screen" /-->
 	
-	<node type="scope.py" name="scope" pkg="slife" output="screen" required="true" />
+	<node type="display_history_new.py" name="display_history_new" pkg="slife" output="screen" required="true" />
+	<node type="scope.py" name="scope1" pkg="slife" output="screen" required="true">
+		<param name="topic" value="/slife/debug/output_1" />
+		<param name="y_min" value="-0.25" />
+		<param name="y_max" value="0.25" />
+	</node>
+	<node type="scope.py" name="scope3" pkg="slife" output="screen" required="true">
+		<param name="topic" value="/slife/estimate" />
+		<param name="y_min" value="-0.25" />
+		<param name="y_max" value="0.25" />
+	</node>
+	<!--node type="scope.py" name="scope4" pkg="slife" output="screen" required="true">
+		<param name="topic" value="/slife/debug/output_4" />
+		<param name="y_min" value="-0.2" />
+		<param name="y_max" value="0.2" />
+		<param name="dims" value="1" />
+		<param name="record" value="false" />
+		<param name="hist" value="false" />
+	</node-->
+
 
 
 	<!-- RealSense -->
