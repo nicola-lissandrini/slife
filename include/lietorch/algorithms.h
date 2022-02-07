@@ -18,17 +18,17 @@ LieGroup interpolate (const LieGroup &a,
 	return a + (b - a) * t;
 }
 
-template<typename LieGroup, typename clock>
+template<typename LieGroup, typename time>
 LieGroup extrapolate (const LieGroup &a,
 				  const LieGroup &b,
-				  const std::chrono::time_point<clock> &timeA,
-				  const std::chrono::time_point<clock> &timeB,
-				  const std::chrono::time_point<clock> &timeEval)
+				  const time &timeA,
+				  const time &timeB,
+				  const time &timeEval)
 {
-	using DurationSeconds = std::chrono::duration<float, std::ratio<1>>;
+	using Duration = typename time::duration;
 
-	return a + (a - b) * (DurationSeconds (timeEval - timeA).count() /
-			DurationSeconds (timeB - timeA).count ());
+	return a + (a - b) * (Duration (timeEval - timeA).count() /
+			Duration (timeB - timeA).count ());
 }
 
 }

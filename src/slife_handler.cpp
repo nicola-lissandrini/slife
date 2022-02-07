@@ -65,7 +65,12 @@ void SlifeHandler::updatePointcloud (const Timed<Tensor> &timedPointcloud)
 
 	// Do optimization, when ready
 	if (optimizer->isReady() && groundTruthSync->markersReady ()) {
-		optimizer->optimize(currentResults.estimateCameraFrame, currentResults.history);
+		if (params.enableLocalMinHeuristics) {
+			optimizer->localMinHeuristics (currentResults.minima, currentResults.histories);
+			currentResults.estimate = currentResults.minima[0];
+			currentResults.history = currentResults.histories[0];
+		} else
+			optimizer->optimize(currentResults.estimate, currentResults.history);
 		currentResults.ready = true;
 	}
 	
@@ -75,11 +80,11 @@ void SlifeHandler::updatePointcloud (const Timed<Tensor> &timedPointcloud)
 }
 
 Tensor SlifeHandler::Results::finalErrorTensor () const {
-	Tensor percentError = 100 * (groundTruth - estimateCameraFrame).norm ()/ groundTruth.log ().norm ();
+	Tensor percentError = 100 * (groundTruth - estimate).norm ()/ groundTruth.log ().norm ();
 	cout << "\nground truth: " << groundTruth << endl;
-	cout << "estimate: " << estimateCameraFrame << endl;
+	cout << "estimate: " << estimate << endl;
 	cout << "percent error: " << percentError.item ().toFloat () << "%\n" << endl;
-	return (estimateCameraFrame.coeffs, groundTruth.coeffs);
+	return (estimate.coeffs, groundTruth.coeffs);
 }
 
 TargetGroup SlifeHandler::normalizeToSampleTime (const TargetGroup &value, const FrequencyEstimator &frequency) {
@@ -100,11 +105,12 @@ Tensor SlifeHandler::miscTest (const Results &results)
 {
 	if (!results.ready)
 		return Tensor ();
-	
-	Tensor oldPcl = optimizer->costFunction ()->oldPointcloudBatch (false);
-	Tensor newPcl = optimizer->costFunction ()->getPointcloud ();
 
-	return (newPcl - oldPcl).norm (2,1);
+	for (auto curr : results.minima) {
+		//COUTN(curr);
+	}
+
+	return Tensor ();
 }
 
 vector<string> outputStrings = {"estimate",
@@ -130,9 +136,10 @@ void SlifeHandler::outputResults (const Results &results)
 			switch (currType) {
 			case OUTPUT_ESTIMATE:
 				outputTensor = cameraToGroundTruthFrame (params.normalizeBySampleTime ?
-													 normalizeToSampleTime (results.estimateCameraFrame,
+													 normalizeToSampleTime (results.estimate,
 																	    pointcloudFreq) :
-													 results.estimateCameraFrame).coeffs;
+													 results.estimate
+												).coeffs;
 				break;
 			case OUTPUT_HISTORY:
 				outputTensor = results.historyTensor ();
@@ -186,15 +193,20 @@ Tensor SlifeHandler::Results::historyErrorTensor () const
 
 Tensor SlifeHandler::Results::historyTensor () const
 {
-	Tensor historyTensor = torch::empty({(long int) history.size(), TargetGroup::Dim}, kFloat);
+	Tensor historiesTensor = torch::empty({(long int) histories.size (), (long int) history.size (), TargetGroup::Dim}, kFloat);
 	int i = 0;
-	
-	for (auto curr : history) {
-		historyTensor[i] = curr.coeffs;
+
+	for (auto currHistory : histories) {
+		int j = 0;
+
+		for (auto currEstimate : currHistory) {
+			historiesTensor[i][j] = currEstimate.coeffs;
+			j++;
+		}
 		i++;
 	}
 	
-	return historyTensor;
+	return historiesTensor;
 }
 
 void SlifeHandler::test ()
@@ -267,8 +279,10 @@ SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlPar
 	params.cameraFrame.coeffs = paramTensor<float> (xmlParams, "vicon_to_camera_frame");
 	params.readingWindow.mode = paramEnum<PointcloudWindow::Mode> (xmlParams, "window_mode", {"sliding", "downsample"});
 	params.readingWindow.size = paramInt (xmlParams, "window_size");
-	params.groundTruthTracker.queueLength = paramInt (xmlParams, "ground_truth_queue_length");
+	params.groundTruthTracker.queueLength = paramInt (xmlParams["ground_truth_sync"], "queue_length");
+	params.groundTruthTracker.msOffset = paramFloat (xmlParams["ground_truth_sync"], "ms_offset");
 	params.normalizeBySampleTime = paramBool (xmlParams, "normalize_by_sample_time");
+	params.enableLocalMinHeuristics = paramBool (xmlParams, "enable_local_min_heuristics");
 	
 	switch (params.targetOptimizationGroup) {
 	case TARGET_POSITION:
@@ -319,6 +333,8 @@ SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
 	optimizerParams->disable = paramBool (xmlParams, "disable");
 	optimizerParams->initializationType = paramEnum<PointcloudMatchOptimizer<TargetGroup>::InitializationType> (xmlParams, "initialization_type",{"identity","last"});
 	optimizerParams->recordHistory = paramBool (xmlParams, "record_history");
+	optimizerParams->localMinHeuristics.count = paramInt (xmlParams["local_min_heuristics"], "count");
+	optimizerParams->localMinHeuristics.scatter = paramFloat (xmlParams["local_min_heuristics"], "scatter");
 	
 	return optimizerParams;
 }
@@ -347,15 +363,15 @@ void FrequencyEstimator::reset () {
 }
 
 void FrequencyEstimator::tick () {
-	tick (Stopwatch::now ());
+	tick (Clock::now ());
 }
 
-void FrequencyEstimator::tick (const FrequencyEstimator::Time &now)
+void FrequencyEstimator::tick (const Time &now)
 {
 	if (seq == 0) {
 		last = now;
 	} else {
-		Elapsed currentPeriod = now - last;
+		Duration currentPeriod = now - last;
 		lastPeriod = currentPeriod;
 		last = now;
 
@@ -379,7 +395,9 @@ double FrequencyEstimator::estimateSeconds () const {
 
 GroundTruthSync::GroundTruthSync (const GroundTruthSync::Params &_params):
 	params(_params)
-{}
+{
+	offset = chrono::duration<float, std::milli> (params.msOffset);
+}
 
 void GroundTruthSync::updateGroundTruth (const Timed<TargetGroup> &groundTruth)
 {
@@ -394,17 +412,18 @@ void GroundTruthSync::addSynchronizationMarker (const Time &otherTime)
 {
 	GroundTruthBatch::iterator closest;
 	Timed<MarkerMatch> newMarker;
+	Time otherTimeAdjusted = otherTime + offset;
 	
-	newMarker.time () = otherTime;
+	newMarker.time () = otherTimeAdjusted;
 	
-	if (otherTime < groundTruths.front ().time ()) {
+	if (otherTimeAdjusted < groundTruths.front ().time ()) {
 		ROS_WARN_STREAM ("Ground truth matching the supplied timestamp has expired by " <<
-					  (chrono::duration<float, std::milli> (groundTruths.front ().time () - otherTime)).count() << "ms.\n"
+					  (chrono::duration<float, std::milli> (groundTruths.front ().time () - otherTimeAdjusted)).count() << "ms.\n"
 																								"Using last ground truth stored, probabily outdated.\n"
 																								"Consider increasing 'ground_truth_queue_length' to avoid this issue");
 		closest = groundTruths.begin ();
 	} else
-		closest = findClosest (otherTime);
+		closest = findClosest (otherTimeAdjusted);
 	
 	if (next (closest) == groundTruths.end ())
 		newMarker.obj () = make_pair (*prev (closest), *closest);

@@ -13,14 +13,20 @@
 
 using TargetGroup = lietorch::Position;
 
+using Clock = std::chrono::system_clock;
+using Duration = std::chrono::duration<double>;
+using Time = std::chrono::time_point<Clock, Duration>;
+
 template<class T>
-using Timed = TimedClock<T, std::chrono::system_clock>;
+using Timed = TimedClock<T, Clock, Duration>;
+
 
 class GroundTruthSync
 {
 public:
 	struct Params {
 		int queueLength;
+		float msOffset;
 
 		DEF_SHARED(Params)
 	};
@@ -28,13 +34,12 @@ public:
 private:
 	using GroundTruth = Timed<TargetGroup>;
 	using GroundTruthBatch = std::deque<GroundTruth>;
-	using Time = std::chrono::time_point<std::chrono::system_clock>;
-	using TimeDuration = std::chrono::duration<float>;
 	using MarkerMatch = std::pair<GroundTruth, GroundTruth>;
 
 	GroundTruthBatch groundTruths;
 	// The time in the markers correspond to the pcl time
 	std::queue<Timed<MarkerMatch>> markerMatches;
+	Duration offset;
 
 	Params params;
 	GroundTruthBatch::iterator findClosest(const Time &otherTime);
@@ -92,13 +97,10 @@ public:
 
 class FrequencyEstimator
 {
-	using Stopwatch = std::chrono::system_clock;
-	using Time = std::chrono::time_point<Stopwatch>;
-	using Elapsed = std::chrono::duration<double>;
 
 	Time last;
-	Elapsed lastPeriod;
-	Elapsed averagePeriod;
+	Duration lastPeriod;
+	Duration averagePeriod;
 	uint seq;
 
 public:
@@ -143,9 +145,11 @@ public:
 	};
 
 	struct Results {
-		TargetGroup estimateCameraFrame;
-		TargetGroup groundTruth;
+		TargetGroup estimate;
+		std::vector<TargetGroup> minima;
 		TargetOptimizer::History history;
+		std::vector<TargetOptimizer::History> histories;
+		TargetGroup groundTruth;
 		bool ready;
 
 		Tensor historyTensor () const;
@@ -161,6 +165,7 @@ private:
 	struct Params {
 		bool syntheticPcl;
 		bool normalizeBySampleTime;
+		bool enableLocalMinHeuristics;
 		TargetOptimizationGroup targetOptimizationGroup;
 		lietorch::Pose cameraFrame;
 		PointcloudWindow::Params readingWindow;

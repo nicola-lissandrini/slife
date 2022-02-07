@@ -43,13 +43,16 @@ class DisplayHistoryNode:
         
         #plt.scatter (self.tensor[:,0], self.tensor[:,1])
         plt.clf()
-        plt.plot(error_t, label="translation")
+        for i in range (self.sizes[0]):
+            if (i == 0):
+                plt.plot(self.tensor[i,:,0], "k", label="x_{}".format(i))
+            else:
+                plt.plot(self.tensor[i,:,0], label="x_{}".format(i))
         #plt.plot(error_q, label="rotation")
         plt.xlabel ("# iterations")
         plt.ylabel ("error norm (chordal metrics)")
         #plt.ylim([-0.2, 0.2])
         plt.title ("Current OP history")
-        plt.legend ()
         plt.grid ()
         plt.draw ()
 
