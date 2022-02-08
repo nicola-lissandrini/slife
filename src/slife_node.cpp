@@ -65,8 +65,12 @@ bool SlifeNode::commandSrvCallback (slife::CmdRequest &request, slife::CmdRespon
 		slifeHandler.start ();
 		response.response = 1;
 		break;
+	case CMD_RESET:
+		slifeHandler.reset ();
+		response.response = 1;
+		break;
 	default:
-		ROS_WARN ("Unrecognized command received %d", request.command);
+        ROS_WARN ("Unrecognized command received %ld", request.command);
 		return false;
 	}
 

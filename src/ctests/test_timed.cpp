@@ -90,9 +90,7 @@ int main ()
 
 	std::chrono::duration<float> dur = pclTime - primaTime;
 
-	COUTN ((dur).count());
-	COUTN ((std::chrono::duration_cast<float, std::chrono::milliseconds> (dur).count ()));
-	COUTN ((std::chrono::duration_cast<float, std::chrono::seconds> (dur).count ()));
+    COUTN((std::chrono::duration<float, std::milli> (dur)).count ());
 
 	auto closest = std::lower_bound (objs.begin (), objs.end (), pclTime, [](const Timed<A> &gt, const decltype(pclTime) &pt) { return gt.time () < pt; });
 

@@ -44,7 +44,8 @@ class SlifeNode : public SparcsNode
 	enum CmdOpCode {
 		CMD_IS_READY = 0,
 		CMD_PAUSE,
-		CMD_START
+		CMD_START,
+		CMD_RESET
 	};
 
 	void initParams ();

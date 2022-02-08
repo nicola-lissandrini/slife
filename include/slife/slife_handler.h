@@ -10,109 +10,7 @@
 #include "optimizer.h"
 #include "landscape.h"
 #include "test.h"
-
-using TargetGroup = lietorch::Position;
-
-using Clock = std::chrono::system_clock;
-using Duration = std::chrono::duration<double>;
-using Time = std::chrono::time_point<Clock, Duration>;
-
-template<class T>
-using Timed = TimedClock<T, Clock, Duration>;
-
-
-class GroundTruthSync
-{
-public:
-	struct Params {
-		int queueLength;
-		float msOffset;
-
-		DEF_SHARED(Params)
-	};
-
-private:
-	using GroundTruth = Timed<TargetGroup>;
-	using GroundTruthBatch = std::deque<GroundTruth>;
-	using MarkerMatch = std::pair<GroundTruth, GroundTruth>;
-
-	GroundTruthBatch groundTruths;
-	// The time in the markers correspond to the pcl time
-	std::queue<Timed<MarkerMatch>> markerMatches;
-	Duration offset;
-
-	Params params;
-	GroundTruthBatch::iterator findClosest(const Time &otherTime);
-	TargetGroup getMatchingGroundTruth(const Timed<MarkerMatch> &marker) const;
-
-public:
-	GroundTruthSync (const Params &_params);
-
-	void updateGroundTruth (const Timed<TargetGroup> &groundTruth);
-	void addSynchronizationMarker (const Time &otherTime);
-	TargetGroup getRelativeGroundTruth () const;
-	TargetGroup getMatchBefore() const;
-	TargetGroup getMatchAfter() const;
-	bool markersReady () const;
-	bool groundTruthReady() const;
-	void reset ();
-
-	DEF_SHARED(GroundTruthSync)
-};
-
-template<class Reading>
-class ReadingWindow
-{
-public:
-	enum Mode {
-		MODE_SLIDING,
-		MODE_DOWNSAMPLE
-	};
-
-	struct Params {
-		Mode mode;
-		uint size;
-
-		DEF_SHARED(Params)
-	};
-
-private:
-	std::queue<Reading> readingQueue;
-	uint skipped;
-	Params params;
-
-	void addDownsample (const Reading &newReading);
-	void addSliding (const Reading &newReading);
-
-public:
-	ReadingWindow (const Params &_params);
-
-	void add (const Reading &newReading);
-	Reading get ();
-	bool isReady () const;
-	void reset();
-
-	DEF_SHARED(ReadingWindow)
-};
-
-class FrequencyEstimator
-{
-
-	Time last;
-	Duration lastPeriod;
-	Duration averagePeriod;
-	uint seq;
-
-public:
-	FrequencyEstimator ();
-
-	void tick ();
-	void tick (const Time &now);
-	double estimateSeconds () const;
-	double estimateHz () const;
-	double lastPeriodSeconds () const;
-	void reset();
-};
+#include "synchronization.h"
 
 
 class OutputsManager;
@@ -166,6 +64,7 @@ private:
 		bool syntheticPcl;
 		bool normalizeBySampleTime;
 		bool enableLocalMinHeuristics;
+		OffsetEstimator::Params offsetEstimator;
 		TargetOptimizationGroup targetOptimizationGroup;
 		lietorch::Pose cameraFrame;
 		PointcloudWindow::Params readingWindow;

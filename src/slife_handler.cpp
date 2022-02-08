@@ -134,6 +134,7 @@ void SlifeHandler::outputResults (const Results &results)
 			ROS_WARN_STREAM ("Cannot publish output '" << outputStrings[currType] << "': optimization is disabled or not ready");
 		else {
 			switch (currType) {
+			case OUTPUT_ESTIMATE_WORLD:
 			case OUTPUT_ESTIMATE:
 				outputTensor = cameraToGroundTruthFrame (params.normalizeBySampleTime ?
 													 normalizeToSampleTime (results.estimate,
@@ -143,15 +144,15 @@ void SlifeHandler::outputResults (const Results &results)
 				break;
 			case OUTPUT_HISTORY:
 				outputTensor = results.historyTensor ();
-				extraData = {params.targetOptimizationGroup};
+				extraData = {static_cast<float>(params.targetOptimizationGroup)};
 				break;
 			case OUTPUT_ERROR_HISTORY:
 				outputTensor = results.historyErrorTensor ();
-				extraData = {params.targetOptimizationGroup};
+				extraData = {static_cast<float>(params.targetOptimizationGroup)};
 				break;
 			case OUTPUT_FINAL_ERROR:
 				outputTensor = results.finalErrorTensor ();
-				extraData = {params.targetOptimizationGroup};
+				extraData = {static_cast<float>(params.targetOptimizationGroup)};
 				break;
 			case OUTPUT_RELATIVE_GROUND_TRUTH:
 				outputTensor = params.normalizeBySampleTime ?
@@ -240,6 +241,7 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 	optimizer = make_shared<PointcloudMatchOptimizer<TargetGroup>> (optimizerParams,
 													    make_shared<PointcloudMatch<TargetGroup>> (landscapeParams,
 																						  costFunctionParams));
+
 	groundTruthSync = make_shared<GroundTruthSync> (params.groundTruthTracker);
 	pointcloudWindow = make_shared<PointcloudWindow> (params.readingWindow);
 	
@@ -283,6 +285,8 @@ SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlPar
 	params.groundTruthTracker.msOffset = paramFloat (xmlParams["ground_truth_sync"], "ms_offset");
 	params.normalizeBySampleTime = paramBool (xmlParams, "normalize_by_sample_time");
 	params.enableLocalMinHeuristics = paramBool (xmlParams, "enable_local_min_heuristics");
+	params.offsetEstimator.activationThreshold = paramFloat (xmlParams["offset_estimator"], "activation_threshold");
+	params.offsetEstimator.enable = paramFloat (xmlParams["offset_estimator"], "enable");
 	
 	switch (params.targetOptimizationGroup) {
 	case TARGET_POSITION:
@@ -353,201 +357,6 @@ Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xm
 	
 	return landscapeParams;
 }
-
-FrequencyEstimator::FrequencyEstimator():
-	seq(0)
-{}
-
-void FrequencyEstimator::reset () {
-	seq = 0;
-}
-
-void FrequencyEstimator::tick () {
-	tick (Clock::now ());
-}
-
-void FrequencyEstimator::tick (const Time &now)
-{
-	if (seq == 0) {
-		last = now;
-	} else {
-		Duration currentPeriod = now - last;
-		lastPeriod = currentPeriod;
-		last = now;
-
-		averagePeriod = averagePeriod + 1. / double (seq + 1) * (currentPeriod - averagePeriod);
-	}
-
-	seq++;
-}
-
-double FrequencyEstimator::estimateHz() const {
-	return 1 / estimateSeconds ();
-}
-
-double FrequencyEstimator::lastPeriodSeconds() const {
-	return lastPeriod.count ();
-}
-
-double FrequencyEstimator::estimateSeconds () const {
-	return averagePeriod.count ();
-}
-
-GroundTruthSync::GroundTruthSync (const GroundTruthSync::Params &_params):
-	params(_params)
-{
-	offset = chrono::duration<float, std::milli> (params.msOffset);
-}
-
-void GroundTruthSync::updateGroundTruth (const Timed<TargetGroup> &groundTruth)
-{
-	groundTruths.push_back (groundTruth);
-	
-	if (groundTruths.size () > params.queueLength)
-		groundTruths.pop_front ();
-}
-
-
-void GroundTruthSync::addSynchronizationMarker (const Time &otherTime)
-{
-	GroundTruthBatch::iterator closest;
-	Timed<MarkerMatch> newMarker;
-	Time otherTimeAdjusted = otherTime + offset;
-	
-	newMarker.time () = otherTimeAdjusted;
-	
-	if (otherTimeAdjusted < groundTruths.front ().time ()) {
-		ROS_WARN_STREAM ("Ground truth matching the supplied timestamp has expired by " <<
-					  (chrono::duration<float, std::milli> (groundTruths.front ().time () - otherTimeAdjusted)).count() << "ms.\n"
-																								"Using last ground truth stored, probabily outdated.\n"
-																								"Consider increasing 'ground_truth_queue_length' to avoid this issue");
-		closest = groundTruths.begin ();
-	} else
-		closest = findClosest (otherTimeAdjusted);
-	
-	if (next (closest) == groundTruths.end ())
-		newMarker.obj () = make_pair (*prev (closest), *closest);
-	else
-		newMarker.obj () = make_pair (*closest, *next (closest));
-	
-	markerMatches.push (newMarker);
-	
-	if (markerMatches.size () > 2)
-		markerMatches.pop ();
-}
-
-GroundTruthSync::GroundTruthBatch::iterator GroundTruthSync::findClosest (const Time &otherTime)
-{
-	auto it = std::lower_bound (groundTruths.begin (), groundTruths.end (), otherTime, [] (GroundTruthBatch::const_reference gt, decltype(otherTime) ot){ return gt.time () < ot; });
-	
-	if (it == groundTruths.end ())
-		return prev (it);
-	
-	return it;
-}
-
-TargetGroup GroundTruthSync::getMatchingGroundTruth (const Timed<MarkerMatch> &marker) const
-{
-	GroundTruth before = marker.obj ().first;
-	GroundTruth after = marker.obj ().second;
-	
-	return extrapolate (before.obj (), after.obj (),
-					before.time (), after.time (), marker.time ());
-}
-
-TargetGroup GroundTruthSync::getRelativeGroundTruth () const {
-	TargetGroup before = getMatchBefore ();
-	TargetGroup after  = getMatchAfter ();
-	
-	return before.inverse() * after;
-}
-
-TargetGroup GroundTruthSync::getMatchBefore () const {
-	return getMatchingGroundTruth (markerMatches.front ());
-}
-
-TargetGroup GroundTruthSync::getMatchAfter () const {
-	return getMatchingGroundTruth (markerMatches.back ());
-}
-
-bool GroundTruthSync::markersReady() const {
-	return markerMatches.size () == 2;
-}
-
-bool GroundTruthSync::groundTruthReady () const {
-	return groundTruths.size () > 1;
-}
-
-void GroundTruthSync::reset()
-{
-	groundTruths.clear ();
-	markerMatches = {};
-}
-
-template<class Reading>
-ReadingWindow<Reading>::ReadingWindow(const ReadingWindow::Params &_params):
-	params(_params),
-	skipped(_params.size)
-{
-}
-
-template<class Reading>
-void ReadingWindow<Reading>::reset ()
-{
-	readingQueue = {};
-	skipped = params.size;
-}
-
-template<class Reading>
-void ReadingWindow<Reading>::addDownsample (const Reading &newReading)
-{
-	if (skipped == params.size) {
-		skipped = 0;
-		if (readingQueue.size () > 0)
-			readingQueue.pop ();
-		readingQueue.push (newReading);
-	} else
-		skipped++;
-}
-
-template<class Reading>
-void ReadingWindow<Reading>::addSliding (const Reading &newReading)
-{
-	readingQueue.push (newReading);
-	
-	if (readingQueue.size () == params.size)
-		readingQueue.pop ();
-}
-
-template<class Reading>
-void ReadingWindow<Reading>::add(const Reading &newReading)
-{
-	switch (params.mode) {
-	case MODE_DOWNSAMPLE:
-		addDownsample (newReading);
-		break;
-	case MODE_SLIDING:
-		addSliding (newReading);
-		break;
-	}
-}
-
-template<class Reading>
-Reading ReadingWindow<Reading>::get () {
-	return readingQueue.front ();
-}
-
-template<class Reading>
-bool ReadingWindow<Reading>::isReady() const
-{
-	switch (params.mode) {
-	case MODE_DOWNSAMPLE:
-		return skipped == 0;
-	case MODE_SLIDING:
-		return readingQueue.size () == params.size;
-	}
-}
-
 
 
 

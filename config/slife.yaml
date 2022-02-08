@@ -7,6 +7,11 @@ slife:
     ms_offset: 200  # ms
   normalize_by_sample_time: false
   enable_local_min_heuristics: true
+  offset_estimator:
+    window_size_ms: 500 # ms
+    count: 100
+    enabled: true
+
 
   # options: [history, error_history, final_error, relative_ground_truth, rocessed_pointcloud, misc]
   outputs: [relative_ground_truth, history, processed_pointcloud]
