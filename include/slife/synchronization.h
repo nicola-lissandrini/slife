@@ -19,12 +19,14 @@ class Signal
 	using DataType = container<Timed<LieGroup>>;
 	DataType timedData;
 
+    typename DataType::iterator findClosest (const Time &t);
+
 public:
 	Signal ();
 
 	LieGroup operator[] (uint i);
 
-    Timed<LieGroup> operator() (const Time &t);
+    LieGroup operator() (const Time &t);
 
 	typename DataType::iterator begin () {
 		return timedData.begin ();
@@ -34,12 +36,6 @@ public:
         return timedData.end ();
     }
 };
-
-template<typename LieGroup,template<typename ...> typename container>
-Timed<LieGroup> Signal<LieGroup, container>::operator()(const Time &t)
-{
-
-}
 
 class GroundTruthSync
 {
@@ -61,8 +57,7 @@ private:
 	std::queue<Timed<MarkerMatch>> markerMatches;
 	Duration offset;
 
-	Params params;
-	GroundTruthBatch::iterator findClosest(const Time &otherTime);
+    Params params;
 	TargetGroup getMatchingGroundTruth(const Timed<MarkerMatch> &marker) const;
 
 public:

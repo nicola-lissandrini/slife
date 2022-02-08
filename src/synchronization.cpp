@@ -4,6 +4,19 @@ using namespace std;
 using namespace torch;
 using namespace lietorch;
 
+
+template<typename LieGroup, template<typename ...> class container>
+typename DataType::iterator Signal<LieGroup, container>::findClosest(const Time &t)
+{
+
+}
+
+template<typename LieGroup, template<typename ...> class container>
+LieGroup Signal<LieGroup, container>::operator ()(const Time &t)
+{
+
+}
+
 FrequencyEstimator::FrequencyEstimator():
 	seq(0)
 {}
