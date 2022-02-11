@@ -10,14 +10,14 @@ using namespace torch;
 
 Test::Ptr tester;
 
-Time rosTimeToStd (const ros::Time &rosTime) {
-	return Time () + chrono::nanoseconds(rosTime.toNSec ());
+SlifeHandler::Time rosTimeToStd (const ros::Time &rosTime) {
+	return SlifeHandler::Time () + chrono::duration_cast<SlifeHandler::Duration> (chrono::nanoseconds(rosTime.toNSec ()));
 }
 
 SlifeNode::SlifeNode ():
-	SparcsNode(NODE_NAME),
-	outputsManager(&nh),
-	slifeHandler(shared_ptr<OutputsManager> (&outputsManager))
+	 SparcsNode(NODE_NAME),
+	 outputsManager(&nh),
+	 slifeHandler(shared_ptr<OutputsManager> (&outputsManager))
 {
 	initParams ();
 	initROS ();
@@ -33,8 +33,8 @@ void SlifeNode::initParams () {
 
 void SlifeNode::initROS ()
 {
-	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 1, &SlifeNode::pointcloudCallback);
-	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 1, &SlifeNode::groundTruthCallback);
+	addSub ("pcl_sub", paramString (params["topics"], "pointcloud"), 1000, &SlifeNode::pointcloudCallback);
+	addSub ("ground_truth_sub", paramString (params["topics"], "ground_truth"), 1000, &SlifeNode::groundTruthCallback);
 
 	addPub<std_msgs::Float32MultiArray> ("test_range", paramString (params["topics"], "debug_grid"), 1);
 	addPub<std_msgs::Float32MultiArray> ("estimate", paramString(params["topics"],"estimate"), 1);
@@ -69,8 +69,14 @@ bool SlifeNode::commandSrvCallback (slife::CmdRequest &request, slife::CmdRespon
 		slifeHandler.reset ();
 		response.response = 1;
 		break;
+	case CMD_OFFSET_ESTIMATE: {
+		slifeHandler.pause ();
+		auto offset = slifeHandler.estimateOffset ();
+		response.response = chrono::duration_cast<chrono::milliseconds> (offset).count ();
+		break;
+	}
 	default:
-        ROS_WARN ("Unrecognized command received %ld", request.command);
+		ROS_WARN ("Unrecognized command received %ld", request.command);
 		return false;
 	}
 
@@ -89,7 +95,7 @@ void SlifeNode::pointcloudCallback (const sensor_msgs::PointCloud2 &pointcloudMs
 	} else {
 		pointcloudTensor = torch::from_blob ((void *) pointcloudMsg.data.data(), {pclSize, 4},
 									  torch::TensorOptions().dtype (torch::kFloat32))
-					    .index ({indexing::Ellipsis, indexing::Slice(0,3)});
+						   .index ({indexing::Ellipsis, indexing::Slice(0,3)});
 	}
 
 	timedPointcloud.obj () = pointcloudTensor;
@@ -173,14 +179,14 @@ void Test::initParams (XmlRpc::XmlRpcValue &xmlParams)
 
 Test::Test (XmlRpc::XmlRpcValue &xmlParams,
 		  const std::shared_ptr<SlifeNode> &_nodePtr):
-	nodePtr(_nodePtr)
+	 nodePtr(_nodePtr)
 {
 	initParams (xmlParams);
 	initTestGrid ();
 }
 
 OutputsManager::OutputsManager (ros::NodeHandle *_nh):
-	nh(_nh)
+	 nh(_nh)
 {
 }
 
@@ -191,10 +197,10 @@ void OutputsManager::init (XmlRpc::XmlRpcValue &params)
 	outputs.push_back (SlifeHandler::OUTPUT_ESTIMATE);
 
 	const vector<SlifeHandler::OutputType> &optionalOutputs =
-			paramArray<SlifeHandler::OutputType> (params, "outputs",
-										   [] (XmlRpc::XmlRpcValue &param) {
-		return paramEnum<SlifeHandler::OutputType> (param, outputStrings);
-	});
+	    paramArray<SlifeHandler::OutputType> (params, "outputs",
+									  [] (XmlRpc::XmlRpcValue &param) {
+										  return paramEnum<SlifeHandler::OutputType> (param, outputStrings);
+									  });
 
 	outputs.insert (outputs.end(), optionalOutputs.begin (), optionalOutputs.end ());
 

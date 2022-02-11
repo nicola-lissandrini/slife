@@ -36,6 +36,9 @@ public:
 
 class SlifeNode : public SparcsNode
 {
+    template<typename T>
+    using Timed = SlifeHandler::Timed<T>;
+
 	OutputsManager outputsManager;
 	SlifeHandler slifeHandler;
 	ReadyFlagsStr readyFlags;
@@ -43,9 +46,10 @@ class SlifeNode : public SparcsNode
 
 	enum CmdOpCode {
 		CMD_IS_READY = 0,
-		CMD_PAUSE,
-		CMD_START,
-		CMD_RESET
+		CMD_PAUSE = 1,
+		CMD_START = 2,
+		CMD_RESET = 3,
+		CMD_OFFSET_ESTIMATE = 4
 	};
 
 	void initParams ();

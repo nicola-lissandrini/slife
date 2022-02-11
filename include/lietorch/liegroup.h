@@ -12,7 +12,7 @@
 #include <ATen/Tensor.h>
 #include <ATen/TensorOperators.h>
 #include <ATen/Layout.h>
-#include "sparcsnode/utils.h"
+//#include "sparcsnode/utils.h"
 #include "tangent.h"
 
 namespace lietorch {

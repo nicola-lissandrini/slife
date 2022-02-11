@@ -1,6 +1,8 @@
 #ifndef SLIFE_HANDLER_H
 #define SLIFE_HANDLER_H
 
+#include <chrono>
+#include <ratio>
 #include <torch/torch.h>
 #include <ATen/Tensor.h>
 #include <ATen/TensorOperators.h>
@@ -18,10 +20,15 @@ extern std::vector<std::string> outputStrings;
 
 class SlifeHandler
 {
+public:
+	using Duration = std::chrono::microseconds;
+	using Clock = std::chrono::system_clock;
+	using Time = std::chrono::time_point<Clock, Duration>;
+	template<typename T>
+	using Timed = TimedObject<T, Clock, Duration>;
 	using PointcloudWindow = ReadingWindow<Timed<Pointcloud>>;
 	using TargetOptimizer = PointcloudMatchOptimizer<TargetGroup>;
 
-public:
 	enum TargetOptimizationGroup {
 		TARGET_POSITION,
 		TARGET_QUATERNION_R4,
@@ -55,7 +62,7 @@ public:
 		Tensor finalErrorTensor () const;
 
 		Results ():
-			ready(false)
+			 ready(false)
 		{}
 	};
 
@@ -75,12 +82,18 @@ private:
 
 	Params params;
 	ReadyFlags<std::string> flags;
-	typename TargetOptimizer::Ptr optimizer;
-	GroundTruthSync::Ptr groundTruthSync;
-	std::shared_ptr<OutputsManager> outputsManager;
-	PointcloudWindow::Ptr pointcloudWindow;
 
+	// Main algorithm object
+	typename TargetOptimizer::Ptr optimizer;
+
+	// Synchronization
+	GroundTruthSync::Ptr groundTruthSync;
+	PointcloudWindow::Ptr pointcloudWindow;
+	OffsetEstimator::Ptr offsetEstimator;
 	FrequencyEstimator groundTruthFreq, pointcloudFreq;
+
+	// Output debug
+	std::shared_ptr<OutputsManager> outputsManager;
 
 	void outputResults (const Results &results);
 	template<class LieGroup>
@@ -110,6 +123,7 @@ public:
 	void pause ();
 	void start ();
 	void reset ();
+	Duration estimateOffset ();
 
 	int synchronousActions ();
 

@@ -1,24 +1,21 @@
 #include "slife/synchronization.h"
+#include <algorithm>
+#include <chrono>
+#include <ratio>
+
 
 using namespace std;
+using namespace std::chrono;
 using namespace torch;
 using namespace lietorch;
 
 
-template<typename LieGroup, template<typename ...> class container>
-typename DataType::iterator Signal<LieGroup, container>::findClosest(const Time &t)
-{
-
-}
-
-template<typename LieGroup, template<typename ...> class container>
-LieGroup Signal<LieGroup, container>::operator ()(const Time &t)
-{
-
-}
+/*****************
+ * FrequencyEstimator
+ * ***************/
 
 FrequencyEstimator::FrequencyEstimator():
-	seq(0)
+	 seq(0)
 {}
 
 void FrequencyEstimator::reset () {
@@ -29,20 +26,7 @@ void FrequencyEstimator::tick () {
 	tick (Clock::now ());
 }
 
-void FrequencyEstimator::tick (const Time &now)
-{
-	if (seq == 0) {
-		last = now;
-	} else {
-		Duration currentPeriod = now - last;
-		lastPeriod = currentPeriod;
-		last = now;
 
-		averagePeriod = averagePeriod + 1. / double (seq + 1) * (currentPeriod - averagePeriod);
-	}
-
-	seq++;
-}
 
 double FrequencyEstimator::estimateHz() const {
 	return 1 / estimateSeconds ();
@@ -56,204 +40,132 @@ double FrequencyEstimator::estimateSeconds () const {
 	return averagePeriod.count ();
 }
 
+/*****************
+ * GroundTruthSync
+ * ***************/
+
 GroundTruthSync::GroundTruthSync (const GroundTruthSync::Params &_params):
-	params(_params)
+	 params(_params)
 {
-	offset = chrono::duration<float, std::milli> (params.msOffset);
+	offset = chrono::milliseconds((long)params.msOffset);
 }
 
-void GroundTruthSync::updateGroundTruth (const Timed<TargetGroup> &groundTruth)
+bool GroundTruthSync::groundTruthReady() {
+	return groundTruthSignal.size () > 0;
+}
+
+bool GroundTruthSync::markersReady() {
+	return markerQueue.size () == 2;
+}
+
+void GroundTruthSync::updateGroundTruth(const GroundTruth &newGroundTruth)
 {
-	groundTruths.push_back (groundTruth);
+	groundTruthSignal.addBack (newGroundTruth);
 
-	if (groundTruths.size () > params.queueLength)
-		groundTruths.pop_front ();
+	if (groundTruthSignal.size () > params.queueLength)
+		groundTruthSignal.removeFront ();
 }
 
-
-void GroundTruthSync::addSynchronizationMarker (const Time &otherTime)
+void GroundTruthSync::addSynchronizationMarker (const Time &markerTime, boost::optional<float> &expiredMs, boost::optional<float> &futureMs)
 {
-	GroundTruthBatch::iterator closest;
-	Timed<MarkerMatch> newMarker;
-	Time otherTimeAdjusted = otherTime + offset;
+	Time adjusted = markerTime + offset;
+	markerQueue.push (adjusted);
 
-	newMarker.time () = otherTimeAdjusted;
+	if (adjusted < groundTruthSignal.timeStart ())
+		expiredMs = chrono::duration_cast<chrono::duration<float, std::milli>> (groundTruthSignal.timeStart () - adjusted).count();
 
-	if (otherTimeAdjusted < groundTruths.front ().time ()) {
-		ROS_WARN_STREAM ("Ground truth matching the supplied timestamp has expired by " <<
-					  (chrono::duration<float, std::milli> (groundTruths.front ().time () - otherTimeAdjusted)).count() << "ms.\n"
-																								"Using last ground truth stored, probabily outdated.\n"
-																								"Consider increasing 'ground_truth_queue_length' to avoid this issue");
-		closest = groundTruths.begin ();
-	} else
-		closest = findClosest (otherTimeAdjusted);
+	if (adjusted > groundTruthSignal.timeEnd ())
+		futureMs = chrono::duration_cast<chrono::duration<float, std::milli>> (adjusted - groundTruthSignal.timeEnd ()).count ();
 
-	if (next (closest) == groundTruths.end ())
-		newMarker.obj () = make_pair (*prev (closest), *closest);
-	else
-		newMarker.obj () = make_pair (*closest, *next (closest));
-
-	markerMatches.push (newMarker);
-
-	if (markerMatches.size () > 2)
-		markerMatches.pop ();
+	if (markerQueue.size() > 2)
+		markerQueue.pop ();
 }
 
-GroundTruthSync::GroundTruthBatch::iterator GroundTruthSync::findClosest (const Time &otherTime)
+TargetGroup GroundTruthSync::getLastRelativeGroundTruth() const
 {
-	auto it = std::lower_bound (groundTruths.begin (), groundTruths.end (), otherTime, [] (GroundTruthBatch::const_reference gt, decltype(otherTime) ot){ return gt.time () < ot; });
+	TargetGroup first = groundTruthSignal(markerQueue.front ());
+	TargetGroup second = groundTruthSignal(markerQueue.back ());
 
-	if (it == groundTruths.end ())
-		return prev (it);
-
-	return it;
+	return first.inverse () * second;
 }
 
-TargetGroup GroundTruthSync::getMatchingGroundTruth (const Timed<MarkerMatch> &marker) const
+/*****************
+ * OffsetEstimator
+ * ***************/
+
+OffsetEstimator::OffsetEstimator(const OffsetEstimator::Params &_params):
+	 params(_params)
 {
-	GroundTruth before = marker.obj ().first;
-	GroundTruth after = marker.obj ().second;
-
-	return extrapolate (before.obj (), after.obj (),
-					before.time (), after.time (), marker.time ());
+	step = duration_cast<Duration> (duration<float, std::milli> (float (params.windowSizeMs) / float (totalCount())));
 }
 
-TargetGroup GroundTruthSync::getRelativeGroundTruth () const {
-	TargetGroup before = getMatchBefore ();
-	TargetGroup after  = getMatchAfter ();
-
-	return before.inverse() * after;
-}
-
-TargetGroup GroundTruthSync::getMatchBefore () const {
-	return getMatchingGroundTruth (markerMatches.front ());
-}
-
-TargetGroup GroundTruthSync::getMatchAfter () const {
-	return getMatchingGroundTruth (markerMatches.back ());
-}
-
-bool GroundTruthSync::markersReady() const {
-	return markerMatches.size () == 2;
-}
-
-bool GroundTruthSync::groundTruthReady () const {
-	return groundTruths.size () > 1;
-}
-
-void GroundTruthSync::reset()
-{
-	groundTruths.clear ();
-	markerMatches = {};
-}
-
-template<class Reading>
-ReadingWindow<Reading>::ReadingWindow(const ReadingWindow::Params &_params):
-	params(_params),
-	skipped(_params.size)
-{
-}
-
-template<class Reading>
-void ReadingWindow<Reading>::reset ()
-{
-	readingQueue = {};
-	skipped = params.size;
-}
-
-template<class Reading>
-void ReadingWindow<Reading>::addDownsample (const Reading &newReading)
-{
-	if (skipped == params.size) {
-		skipped = 0;
-		if (readingQueue.size () > 0)
-			readingQueue.pop ();
-		readingQueue.push (newReading);
-	} else
-		skipped++;
-}
-
-template<class Reading>
-void ReadingWindow<Reading>::addSliding (const Reading &newReading)
-{
-	readingQueue.push (newReading);
-
-	if (readingQueue.size () == params.size)
-		readingQueue.pop ();
-}
-
-template<class Reading>
-void ReadingWindow<Reading>::add(const Reading &newReading)
-{
-	switch (params.mode) {
-	case MODE_DOWNSAMPLE:
-		addDownsample (newReading);
-		break;
-	case MODE_SLIDING:
-		addSliding (newReading);
-		break;
-	}
-}
-
-template<class Reading>
-Reading ReadingWindow<Reading>::get () {
-	return readingQueue.front ();
-}
-
-template<class Reading>
-bool ReadingWindow<Reading>::isReady() const
-{
-	switch (params.mode) {
-	case MODE_DOWNSAMPLE:
-		return skipped == 0;
-	case MODE_SLIDING:
-		return readingQueue.size () == params.size;
-	}
-}
-
-OffsetEstimator::OffsetEstimator(const OffsetEstimator::Params &_params, const GroundTruthSync::Ptr &_groundTruths):
-	params(_params),
-	groundTruths(_groundTruths)
-{
-	flags.addFlag ("first_estimate");
-}
-
-void OffsetEstimator::storeNewEstimate (const Timed<TargetGroup> &estimate, const Duration &interval)
+void OffsetEstimator::storeNewEstimate (const TargetGroup &estimate, const Time &firstPointcloudTime, const Time &secondPointcloudTime)
 {
 	if (!params.enable)
 		return;
 
-	estimateSignal.push_back (make_pair (estimate, interval));
+	EstimateSample newSample;
+	Duration interval = duration_cast<Duration> (secondPointcloudTime - firstPointcloudTime);
+
+	newSample.obj () = make_pair (estimate, interval);
+	newSample.time () = firstPointcloudTime;
+	estimateSignal.addBack (newSample);
 }
 
-void OffsetEstimator::storeNewGroundTruth (const Timed<TargetGroup> &groundTruth)
+void OffsetEstimator::storeNewGroundTruth (const GroundTruthSample &groundTruth)
 {
 	if (!params.enable)
 		return;
 
-	groundTruthSignal.push_back (groundTruth);
+	groundTruthSignal.addBack (groundTruth);
 }
 
-void OffsetEstimator::getDelayedGroundTruths (Tensor &delayed, const Timed<TargetGroup> &timedEstimate, const Duration &duration)
-{
-	GroundTruthSignal::iterator matchingGroundTruth = std::lower_bound (groundTruthSignal.begin (),
-														   groundTruthSignal.end (),
-														   [](const auto &gt, const auto &tm) { return gt.time() < tm; });
 
+OffsetEstimator::Duration OffsetEstimator::doEstimation (const torch::Tensor &groundTruthDelays, const torch::Tensor &estimateTensor)
+{
+	int index = (estimateTensor.unsqueeze (1)
+			   - groundTruthDelays)
+				 .norm(2,2)
+				 .sum(0)
+				 .argmin ()
+				 .item().toInt ();
+
+	COUTN(duration_cast<milliseconds> (step).count())
+	COUTN(milliseconds (-(int)params.count).count())
+
+	return milliseconds (-(int)params.count) + index * step;
 }
 
-void OffsetEstimator::estimate ()
+torch::Tensor OffsetEstimator::getDelayedGroundTruths (const EstimateSample &estimateSample)
 {
-	Tensor groundTruthDelays = torch::empty ({estimateSignal.size (), params.count, TargetGroup::Dim}, kFloat);
+	Tensor delayed = torch::empty ({totalCount (), TargetGroup::Dim}, kFloat);
 
-	for (TimedEstimateDuration &currentEstimate : estimateSignal) {
-		Timed<TargetGroup> timedCurrEstimate = currentEstimate.first;
-		Duration currDuration = currentEstimate.second;
+	for (int j = -params.count; j < (signed) params.count; j++) {
+		Time currentFirstTime = estimateSample.time() + j * step;
+		Time currentSecondTime = estimateSample.time() + estimateSample.obj ().second + j * step;
 
-		getDelayedGroundTruths (groundTruthDelays, timedCurrEstimate, currDuration);
+		TargetGroup firstGroundTruth = groundTruthSignal(currentFirstTime);
+		TargetGroup secondGroundTruth = groundTruthSignal(currentSecondTime);
+
+		delayed[j] = (firstGroundTruth.inverse() * secondGroundTruth).coeffs;
 	}
+
+	return delayed;
 }
 
+OffsetEstimator::Duration OffsetEstimator::estimateBestOffset ()
+{
+	Tensor groundTruthDelays = torch::empty ({static_cast<long>(estimateSignal.size ()), totalCount(), TargetGroup::Dim}, kFloat);
+	Tensor estimateTensor = torch::empty ({static_cast<long>(estimateSignal.size ()), TargetGroup::Dim}, kFloat);
 
+	uint i = 0;
+	for (const EstimateSample &currentEstimate : estimateSignal) {
+		groundTruthDelays[i] = getDelayedGroundTruths (currentEstimate);
+		estimateTensor[i] = currentEstimate.obj ().first.coeffs.flatten();
+		i++;
+	}
+
+	return doEstimation (groundTruthDelays, estimateTensor);
+}
 
 

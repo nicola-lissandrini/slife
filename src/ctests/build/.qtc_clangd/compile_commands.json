@@ -7,7 +7,7 @@
         "-I",
         "/opt/Qt/Tools/QtCreator/share/qtcreator/cplusplus/wrappedQtHeaders/QtCore",
         "-I",
-        "/tmp/QtCreator-yyKCCk/clang-uiheader-pulZDF",
+        "/tmp/QtCreator-XuOOsn/clang-uiheader-ZxxNSQ",
         "-nostdinc",
         "-nostdinc++",
         "-std=c++14",
@@ -16,7 +16,7 @@
         "-D_GLIBCXX_USE_CXX11_ABI=1",
         "-fsyntax-only",
         "-m64",
-        "--target=x86_64-pc-linux-gnu",
+        "--target=x86_64-linux-gnu",
         "-DQ_CREATOR_RUN",
         "-DUSE_C10D_GLOO",
         "-DUSE_C10D_NCCL",
@@ -61,9 +61,9 @@
         "-Wno-unknown-pragmas",
         "-Wno-unknown-warning-option",
         "-Wno-documentation-unknown-command",
-        "/home/nicola/ros/tum_ws/src/slife/src/ctests/test_timed.cpp"
+        "/home/nicola/ros/tum_ws/src/slife/src/ctests/test_signal.cpp"
     ],
     "directory": "/home/nicola/ros/tum_ws/src/slife/src/ctests/build/.qtc_clangd",
-    "file": "/home/nicola/ros/tum_ws/src/slife/src/ctests/test_timed.cpp"
+    "file": "/home/nicola/ros/tum_ws/src/slife/src/ctests/test_signal.cpp"
 }
 ]

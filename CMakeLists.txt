@@ -47,7 +47,8 @@ add_executable(slife
 	src/optimizer.cpp
 	src/landscape.cpp
 	src/quaternion.cpp
-	src/pose.cpp)
+	src/pose.cpp
+	src/synchronization.cpp)
 target_link_libraries (slife ${catkin_LIBRARIES} ${TORCH_LIBRARIES} ${PCL_LIBRARIES} sparcsnode)
 add_dependencies(slife ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 

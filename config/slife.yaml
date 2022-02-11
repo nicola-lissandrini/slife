@@ -4,13 +4,15 @@ slife:
   vicon_to_camera_frame: [0., 0., 0., -0.5, 0.5, 0.5, 0.5 ]
   ground_truth_sync:
     queue_length: 1000
-    ms_offset: 200  # ms
+    ms_offset: 380  # ms
   normalize_by_sample_time: false
   enable_local_min_heuristics: true
   offset_estimator:
+    # for each estimate, take <count> ground truths in a window around its time [-window_size_ms, window_size_ms]
+    # and get the offset that makes the full signal closer
     window_size_ms: 500 # ms
     count: 100
-    enabled: true
+    enable: true
 
 
   # options: [history, error_history, final_error, relative_ground_truth, rocessed_pointcloud, misc]
@@ -43,13 +45,13 @@ slife:
     step_sizes: 0.001
     norm_weights: 1 # [1, 1]
     threshold: 0.000
-    max_iterations: 100
+    max_iterations: 50
     initialization_type: last   # options: {identity, last, external [not implemented]}
     record_history: true        # time consuming, use only for debug
     disable: false              # do not perform optimization, only collect data and test
     local_min_heuristics:       # after first optimization, draw gaussian samples around the result and retry optimization
-      count: 1                 # number of new reinitializations
-      scatter: 0.03              # variance of normal distribution to draw from
+      count: 0                 # number of new reinitializations
+      scatter: 0.05              # variance of normal distribution to draw from
     cost:
       batch_size: 50          # number of points where landscape is evaluated
       stochastic: true

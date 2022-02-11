@@ -61,9 +61,9 @@ build edit_cache: phony CMakeFiles/edit_cache.util
 
 build cmake_object_order_depends_target_test_lietorch: phony || CMakeFiles/test_lietorch.dir
 
-build CMakeFiles/test_lietorch.dir/test_timed.cpp.o: CXX_COMPILER__test_lietorch ../test_timed.cpp || cmake_object_order_depends_target_test_lietorch
+build CMakeFiles/test_lietorch.dir/test_scemo.cpp.o: CXX_COMPILER__test_lietorch ../test_scemo.cpp || cmake_object_order_depends_target_test_lietorch
   DEFINES = -DUSE_C10D_GLOO -DUSE_C10D_NCCL -DUSE_DISTRIBUTED -DUSE_RPC -DUSE_TENSORPIPE
-  DEP_FILE = CMakeFiles/test_lietorch.dir/test_timed.cpp.o.d
+  DEP_FILE = CMakeFiles/test_lietorch.dir/test_scemo.cpp.o.d
   FLAGS = -std=c++14 -DEIGEN_STACK_ALLOCATION_LIMIT=0 -msse2 -D_GLIBCXX_USE_CXX11_ABI=1
   INCLUDES = -I../include -I../../../include -I/usr/include/eigen3 -I/opt/ros/noetic/include -isystem /opt/libtorch/include -isystem /opt/libtorch/include/torch/csrc/api/include -isystem /usr/local/cuda/include
   OBJECT_DIR = CMakeFiles/test_lietorch.dir
@@ -77,7 +77,7 @@ build CMakeFiles/test_lietorch.dir/test_timed.cpp.o: CXX_COMPILER__test_lietorch
 #############################################
 # Link the executable test_lietorch
 
-build test_lietorch: CXX_EXECUTABLE_LINKER__test_lietorch CMakeFiles/test_lietorch.dir/test_timed.cpp.o | /opt/libtorch/lib/libtorch.so /opt/libtorch/lib/libc10.so /opt/libtorch/lib/libkineto.a /usr/lib/x86_64-linux-gnu/libcuda.so /usr/local/cuda/lib64/libnvrtc.so /usr/local/cuda/lib64/libnvToolsExt.so /usr/local/cuda/lib64/libcudart.so /opt/libtorch/lib/libc10_cuda.so /opt/libtorch/lib/libc10_cuda.so /opt/libtorch/lib/libc10.so /usr/local/cuda/lib64/libcufft.so /usr/local/cuda/lib64/libcurand.so /usr/local/cuda/lib64/libcublas.so /usr/local/cuda/lib64/libcudnn.so /usr/local/cuda/lib64/libnvToolsExt.so /usr/local/cuda/lib64/libcudart.so
+build test_lietorch: CXX_EXECUTABLE_LINKER__test_lietorch CMakeFiles/test_lietorch.dir/test_scemo.cpp.o | /opt/libtorch/lib/libtorch.so /opt/libtorch/lib/libc10.so /opt/libtorch/lib/libkineto.a /usr/lib/x86_64-linux-gnu/libcuda.so /usr/local/cuda/lib64/libnvrtc.so /usr/local/cuda/lib64/libnvToolsExt.so /usr/local/cuda/lib64/libcudart.so /opt/libtorch/lib/libc10_cuda.so /opt/libtorch/lib/libc10_cuda.so /opt/libtorch/lib/libc10.so /usr/local/cuda/lib64/libcufft.so /usr/local/cuda/lib64/libcurand.so /usr/local/cuda/lib64/libcublas.so /usr/local/cuda/lib64/libcudnn.so /usr/local/cuda/lib64/libnvToolsExt.so /usr/local/cuda/lib64/libcudart.so
   LINK_FLAGS = -rdynamic
   LINK_LIBRARIES = -Wl,-rpath,/opt/libtorch/lib:/usr/local/cuda/lib64  /opt/libtorch/lib/libtorch.so  /opt/libtorch/lib/libc10.so  /opt/libtorch/lib/libkineto.a  -lcuda  /usr/local/cuda/lib64/libnvrtc.so  /usr/local/cuda/lib64/libnvToolsExt.so  /usr/local/cuda/lib64/libcudart.so  /opt/libtorch/lib/libc10_cuda.so  -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch_cpu.so" -Wl,--as-needed  -lpthread  -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch_cuda.so" -Wl,--as-needed  /opt/libtorch/lib/libc10_cuda.so  /opt/libtorch/lib/libc10.so  /usr/local/cuda/lib64/libcufft.so  /usr/local/cuda/lib64/libcurand.so  /usr/local/cuda/lib64/libcublas.so  /usr/local/cuda/lib64/libcudnn.so  -Wl,--no-as-needed,"/opt/libtorch/lib/libtorch.so" -Wl,--as-needed  /usr/local/cuda/lib64/libnvToolsExt.so  /usr/local/cuda/lib64/libcudart.so
   OBJECT_DIR = CMakeFiles/test_lietorch.dir

@@ -8,7 +8,7 @@ using namespace torch;
 using namespace lietorch;
 
 SlifeHandler::SlifeHandler (const std::shared_ptr<OutputsManager> &_outputsManager):
-	outputsManager(_outputsManager)
+	 outputsManager(_outputsManager)
 {
 	flags.addFlag ("initialized", true);
 }
@@ -32,8 +32,9 @@ void SlifeHandler::updateGroundTruth (const Timed<Tensor> &timedGroundTruthTenso
 {
 	groundTruthFreq.tick (timedGroundTruthTensor.time ());
 	Timed<TargetGroup> timedGroundTruth(timedGroundTruthTensor.time(),
-								 poseTensorToGroup<TargetGroup> (timedGroundTruthTensor.obj()));
+								  poseTensorToGroup<TargetGroup> (timedGroundTruthTensor.obj()));
 	groundTruthSync->updateGroundTruth (timedGroundTruth);
+	offsetEstimator->storeNewGroundTruth (timedGroundTruth);
 }
 
 void SlifeHandler::updatePointcloud (const Timed<Tensor> &timedPointcloud)
@@ -41,25 +42,37 @@ void SlifeHandler::updatePointcloud (const Timed<Tensor> &timedPointcloud)
 	if (!groundTruthSync->groundTruthReady ())
 		// Skip the first pointcloud if no ground truth received
 		return;
-	
+
 	// Enqueue in window
 	pointcloudWindow->add (timedPointcloud);
-	
+
 	if (!pointcloudWindow->isReady ())
 		// Skip according to mode:
 		// sliding: until queue full
 		// decimate: every N packets
 		return;
-	
+
 	Results currentResults;
 	Timed<Pointcloud> currentTimedPointcloud = pointcloudWindow->get ();
 
 	// Track decimated frequency
 	pointcloudFreq.tick (currentTimedPointcloud.time ());
-	
-	// Track the ground truth corresponding to each pointcloud
-	groundTruthSync->addSynchronizationMarker (currentTimedPointcloud.time ());
 
+	boost::optional<float> expiredMs, futureMs;
+	// Track the ground truth corresponding to each pointcloud
+	groundTruthSync->addSynchronizationMarker (currentTimedPointcloud.time (), expiredMs, futureMs);
+
+	if (expiredMs.has_value ()) {
+		ROS_WARN_STREAM ("Ground truth matching the supplied timestamp has expired by " << *expiredMs << "ms.\n"
+						"Using last ground truth stored, probabily outdated.\n"
+						"Consider increasing 'ground_truth_queue_length' to avoid this issue");
+
+	}
+
+	if (futureMs.has_value ()) {
+		ROS_WARN_STREAM("Last received pointcloud is " << *futureMs << " in the future of the last ground truth received.\n"
+														    "Extrapolating prediction");
+	}
 	// Set new pointcloud in cost function (landscape)
 	optimizer->costFunction()->updatePointcloud (currentTimedPointcloud.obj ());
 
@@ -73,9 +86,12 @@ void SlifeHandler::updatePointcloud (const Timed<Tensor> &timedPointcloud)
 			optimizer->optimize(currentResults.estimate, currentResults.history);
 		currentResults.ready = true;
 	}
-	
-	currentResults.groundTruth = groundTruthSync->getRelativeGroundTruth ();
-	
+
+	offsetEstimator->storeNewEstimate (currentResults.estimate,
+								groundTruthSync->markers ().front(),
+								groundTruthSync->markers ().back ());
+	currentResults.groundTruth = groundTruthSync->getLastRelativeGroundTruth ();
+
 	outputResults (currentResults);
 }
 
@@ -125,11 +141,11 @@ vector<string> outputStrings = {"estimate",
 void SlifeHandler::outputResults (const Results &results)
 {
 	int i = 0;
-	
+
 	for (const OutputType &currType : outputsManager->getOutputs ()) {
 		Tensor outputTensor;
 		vector<float> extraData;
-		
+
 		if (currType != OUTPUT_RELATIVE_GROUND_TRUTH & currType != OUTPUT_MISC & !optimizer->isReady ())
 			ROS_WARN_STREAM ("Cannot publish output '" << outputStrings[currType] << "': optimization is disabled or not ready");
 		else {
@@ -137,10 +153,10 @@ void SlifeHandler::outputResults (const Results &results)
 			case OUTPUT_ESTIMATE_WORLD:
 			case OUTPUT_ESTIMATE:
 				outputTensor = cameraToGroundTruthFrame (params.normalizeBySampleTime ?
-													 normalizeToSampleTime (results.estimate,
-																	    pointcloudFreq) :
-													 results.estimate
-												).coeffs;
+													normalizeToSampleTime (results.estimate,
+																	   pointcloudFreq) :
+													results.estimate
+												 ).coeffs;
 				break;
 			case OUTPUT_HISTORY:
 				outputTensor = results.historyTensor ();
@@ -156,9 +172,9 @@ void SlifeHandler::outputResults (const Results &results)
 				break;
 			case OUTPUT_RELATIVE_GROUND_TRUTH:
 				outputTensor = params.normalizeBySampleTime ?
-								normalizeToSampleTime (results.groundTruth,
-												   pointcloudFreq).coeffs :
-								results.groundTruth.coeffs;
+							    normalizeToSampleTime (results.groundTruth,
+												  pointcloudFreq).coeffs :
+							    results.groundTruth.coeffs;
 				break;
 			case OUTPUT_PROCESSED_POINTCLOUD:
 				outputTensor = optimizer->costFunction ()->getPointcloud ();
@@ -183,12 +199,12 @@ Tensor SlifeHandler::Results::historyErrorTensor () const
 {
 	Tensor errorHistory = torch::empty ({(long int) history.size (),(long int) TargetGroup::Tangent::Dim}, kFloat);
 	int i = 0;
-	
+
 	for (const TargetGroup &curr : history) {
 		errorHistory[i] = (curr - groundTruth).coeffs;
 		i++;
 	}
-	
+
 	return errorHistory;
 }
 
@@ -206,7 +222,7 @@ Tensor SlifeHandler::Results::historyTensor () const
 		}
 		i++;
 	}
-	
+
 	return historiesTensor;
 }
 
@@ -214,9 +230,9 @@ void SlifeHandler::test ()
 {
 	Test::Type testWhat = tester->getType();
 	Tensor testValues;
-	
+
 	testValues = optimizer->costFunction()->test (testWhat);
-	
+
 	if (testValues.numel ())
 		tester->publishRangeTensor (testWhat, testValues);
 }
@@ -226,7 +242,7 @@ int SlifeHandler::synchronousActions ()
 {
 	if (optimizer->costFunction()->isReady())
 		test ();
-	
+
 	return 0;
 }
 
@@ -235,16 +251,17 @@ void SlifeHandler::init (XmlRpc::XmlRpcValue &xmlParams)
 	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr optimizerParams = getOptimizerParams (xmlParams["optimizer"]);
 	typename PointcloudMatch<TargetGroup>::Params::Ptr costFunctionParams = getCostFunctionParams (xmlParams["optimizer"]["cost"]);
 	Landscape::Params::Ptr landscapeParams = getLandscapeParams(xmlParams["landscape"]);
-	
+
 	params = getHandlerParams (xmlParams);
-	
+
 	optimizer = make_shared<PointcloudMatchOptimizer<TargetGroup>> (optimizerParams,
 													    make_shared<PointcloudMatch<TargetGroup>> (landscapeParams,
 																						  costFunctionParams));
 
 	groundTruthSync = make_shared<GroundTruthSync> (params.groundTruthTracker);
 	pointcloudWindow = make_shared<PointcloudWindow> (params.readingWindow);
-	
+	offsetEstimator = make_shared<OffsetEstimator> (params.offsetEstimator);
+
 	flags.set ("initialized");
 }
 
@@ -272,10 +289,14 @@ void SlifeHandler::reset()
 	optimizer->reset ();
 }
 
+SlifeHandler::Duration SlifeHandler::estimateOffset() {
+	return offsetEstimator->estimateBestOffset ();
+}
+
 SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlParams)
 {
 	Params params;
-	
+
 	params.syntheticPcl = paramBool (xmlParams, "synthetic_pcl");
 	params.targetOptimizationGroup = paramEnum<TargetOptimizationGroup> (xmlParams, "target_optimization_group",{"position","quaternion_r4","quaternion","pose_r4","pose","dual_quaternion"});
 	params.cameraFrame.coeffs = paramTensor<float> (xmlParams, "vicon_to_camera_frame");
@@ -285,9 +306,10 @@ SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlPar
 	params.groundTruthTracker.msOffset = paramFloat (xmlParams["ground_truth_sync"], "ms_offset");
 	params.normalizeBySampleTime = paramBool (xmlParams, "normalize_by_sample_time");
 	params.enableLocalMinHeuristics = paramBool (xmlParams, "enable_local_min_heuristics");
-	params.offsetEstimator.activationThreshold = paramFloat (xmlParams["offset_estimator"], "activation_threshold");
-	params.offsetEstimator.enable = paramFloat (xmlParams["offset_estimator"], "enable");
-	
+	params.offsetEstimator.windowSizeMs = paramFloat (xmlParams["offset_estimator"], "window_size_ms");
+	params.offsetEstimator.count = paramFloat (xmlParams["offset_estimator"], "count");
+	params.offsetEstimator.enable = paramBool (xmlParams["offset_estimator"], "enable");
+
 	switch (params.targetOptimizationGroup) {
 	case TARGET_POSITION:
 		assert (typeid(TargetGroup) == typeid(Position) && "Need to recompile the project with using TargetGroup = lietorch::Position");
@@ -309,27 +331,27 @@ SlifeHandler::Params SlifeHandler::getHandlerParams (XmlRpc::XmlRpcValue &xmlPar
 		assert (false && "Supplied target group id not supported");
 		break;
 	}
-	
+
 	return params;
 }
 
 typename PointcloudMatch<TargetGroup>::Params::Ptr
-SlifeHandler::getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams)
+    SlifeHandler::getCostFunctionParams (XmlRpc::XmlRpcValue &xmlParams)
 {
 	typename PointcloudMatch<TargetGroup>::Params::Ptr costFunctionParams = make_shared<PointcloudMatch<TargetGroup>::Params> ();
-	
+
 	costFunctionParams->batchSize = paramInt (xmlParams, "batch_size");
 	costFunctionParams->stochastic = paramBool (xmlParams, "stochastic");
 	costFunctionParams->reshuffleBatchIndexes = paramBool (xmlParams, "reshuffle_batch_indexes");
-	
+
 	return costFunctionParams;
 }
 
 typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr
-SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
+    SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
 {
 	typename PointcloudMatchOptimizer<TargetGroup>::Params::Ptr optimizerParams = make_shared<PointcloudMatchOptimizer<TargetGroup>::Params> ();
-	
+
 	optimizerParams->stepSizes = paramTensor<float> (xmlParams, "step_sizes");
 	optimizerParams->normWeights = paramTensor<float> (xmlParams, "norm_weights");
 	optimizerParams->threshold = paramTensor<float> (xmlParams, "threshold");
@@ -339,14 +361,14 @@ SlifeHandler::getOptimizerParams (XmlRpc::XmlRpcValue &xmlParams)
 	optimizerParams->recordHistory = paramBool (xmlParams, "record_history");
 	optimizerParams->localMinHeuristics.count = paramInt (xmlParams["local_min_heuristics"], "count");
 	optimizerParams->localMinHeuristics.scatter = paramFloat (xmlParams["local_min_heuristics"], "scatter");
-	
+
 	return optimizerParams;
 }
 
 Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xmlParams)
 {
 	Landscape::Params::Ptr landscapeParams = make_shared<Landscape::Params> ();
-	
+
 	landscapeParams->measureRadius = paramDouble (xmlParams, "measure_radius");
 	landscapeParams->smoothRadius = paramDouble (xmlParams, "smooth_radius");
 	landscapeParams->precision = paramInt (xmlParams,"precision");
@@ -354,7 +376,7 @@ Landscape::Params::Ptr SlifeHandler::getLandscapeParams (XmlRpc::XmlRpcValue &xm
 	landscapeParams->clipArea = paramRange (xmlParams, "clip_area");
 	landscapeParams->decimation = paramInt (xmlParams,"decimation");
 	landscapeParams->stochastic = paramBool (xmlParams, "stochastic");
-	
+
 	return landscapeParams;
 }
 

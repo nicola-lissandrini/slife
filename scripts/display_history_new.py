@@ -30,7 +30,7 @@ class DisplayHistoryNode:
     def process_data (self, tensor):
         error_t = tensor[:,0:3]
         error_q = tensor[:,3:]
-        print (tensor.shape)
+        
         return error_t, error_q
 
     def draw (self):
