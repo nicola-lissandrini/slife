@@ -6,4 +6,5 @@ Dependencies:
 ### Basic run
 * `roslaunch slife slife.launch` launches main algorithm and wait for pointclouds/vicon to be published
 * `rosbag play bagfiles/<any>` playback recorded pointclouds/vicon
+* 
 All configuration parameters in `config/slife.yaml`
